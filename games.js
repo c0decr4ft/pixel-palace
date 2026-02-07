@@ -677,7 +677,8 @@ const BALL_SPEED_BASE = 300;
 const PONG_SCORE_TO_WIN = 11;
 
 function randomRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    /* Exclude A,S,D,W so they aren't captured by game controls when typing the code */
+    const chars = 'BCEFGHJKLMNPQRTVXYZ23456789';
     let s = '';
     for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
     return s;
