@@ -1191,7 +1191,8 @@ const TRON_W = TRON_COLS * TRON_CELL;
 const TRON_H = TRON_ROWS * TRON_CELL;
 const TRON_TRAIL_PAD = 3;
 const TRON_BIKE_PAD = 1;
-const TRON_MOVE_MS = 95;
+const TRON_MOVE_MS = 80;
+const TRON_LINE_WIDTH = 2;
 const TRON_DX = [0, 1, 0, -1];
 const TRON_DY = [-1, 0, 1, 0];
 
@@ -1240,8 +1241,9 @@ function initTron() {
 
     function startTronAI() {
         let grid = Array(TRON_ROWS).fill(0).map(() => Array(TRON_COLS).fill(0));
-        let p1 = { x: 2, y: Math.floor(TRON_ROWS/2), dir: 1, alive: true };
-        let p2 = { x: TRON_COLS - 3, y: Math.floor(TRON_ROWS/2), dir: 3, alive: true };
+        const midY = Math.floor(TRON_ROWS/2);
+        let p1 = { x: 2, y: midY, dir: 1, alive: true, path: [[2, midY]] };
+        let p2 = { x: TRON_COLS - 3, y: midY, dir: 3, alive: true, path: [[TRON_COLS - 3, midY]] };
         grid[p1.y][p1.x] = 1;
         grid[p2.y][p2.x] = 2;
         let playerDir = 1;
@@ -1285,19 +1287,19 @@ function initTron() {
             }
             if (nextDir !== null && canTurn(playerDir, nextDir)) playerDir = nextDir;
             if (now - lastMove >= TRON_MOVE_MS) {
-                lastMove = now;
+                lastMove += TRON_MOVE_MS;
                 p1.dir = playerDir;
                 p2.dir = aiChooseDir(p2);
                 const moveOrder = p1.y < p2.y ? [p1, p2] : [p2, p1];
                 for (const cycle of moveOrder) {
                     if (!cycle.alive) continue;
-                    const trailVal = cycle === p1 ? 1 : 2;
                     const n = nextCell(cycle.x, cycle.y, cycle.dir);
                     if (!valid(n)) {
                         cycle.alive = false;
                         continue;
                     }
-                    grid[cycle.y][cycle.x] = trailVal;
+                    cycle.path.push([cycle.x, cycle.y]);
+                    grid[cycle.y][cycle.x] = cycle === p1 ? 1 : 2;
                     cycle.x = n.x;
                     cycle.y = n.y;
                 }
@@ -1315,23 +1317,29 @@ function initTron() {
             interp = interp || 0;
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, TRON_W, TRON_H);
-            const trailSize = TRON_CELL - TRON_TRAIL_PAD * 2;
             const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
-            for (let r = 0; r < TRON_ROWS; r++) {
-                for (let c = 0; c < TRON_COLS; c++) {
-                    const v = grid[r][c];
-                    if (v === 1) {
-                        ctx.fillStyle = '#00ffff';
-                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
-                    } else if (v === 2) {
-                        ctx.fillStyle = '#ff00ff';
-                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
-                    }
-                }
+            const cx = TRON_CELL / 2;
+            function drawTrailLine(path, color, headX, headY) {
+                if (path.length === 0) return;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = TRON_LINE_WIDTH;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(path[0][0] * TRON_CELL + cx, path[0][1] * TRON_CELL + cx);
+                for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0] * TRON_CELL + cx, path[i][1] * TRON_CELL + cx);
+                ctx.lineTo(headX * TRON_CELL + cx, headY * TRON_CELL + cx);
+                ctx.stroke();
             }
+            const h1x = c1.x + TRON_DX[c1.dir] * interp;
+            const h1y = c1.y + TRON_DY[c1.dir] * interp;
+            const h2x = c2.x + TRON_DX[c2.dir] * interp;
+            const h2y = c2.y + TRON_DY[c2.dir] * interp;
+            if (c1.alive && c1.path) drawTrailLine(c1.path, '#00ffff', h1x, h1y);
+            if (c2.alive && c2.path) drawTrailLine(c2.path, '#ff00ff', h2x, h2y);
             if (c1.alive) {
-                const dx = (c1.x + TRON_DX[c1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
-                const dy = (c1.y + TRON_DY[c1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
+                const dx = h1x * TRON_CELL + TRON_BIKE_PAD;
+                const dy = h1y * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = 8;
@@ -1339,8 +1347,8 @@ function initTron() {
                 ctx.shadowBlur = 0;
             }
             if (c2.alive) {
-                const dx = (c2.x + TRON_DX[c2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
-                const dy = (c2.y + TRON_DY[c2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
+                const dx = h2x * TRON_CELL + TRON_BIKE_PAD;
+                const dy = h2y * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#ff00ff';
                 ctx.shadowColor = '#ff00ff';
                 ctx.shadowBlur = 8;
@@ -1445,8 +1453,9 @@ function initTron() {
 
     function startTronOnline(conn, isHost, peerRef) {
         let grid = Array(TRON_ROWS).fill(0).map(() => Array(TRON_COLS).fill(0));
-        let p1 = { x: 2, y: Math.floor(TRON_ROWS/2), dir: 1, alive: true };
-        let p2 = { x: TRON_COLS - 3, y: Math.floor(TRON_ROWS/2), dir: 3, alive: true };
+        const midY = Math.floor(TRON_ROWS/2);
+        let p1 = { x: 2, y: midY, dir: 1, alive: true, path: [[2, midY]] };
+        let p2 = { x: TRON_COLS - 3, y: midY, dir: 3, alive: true, path: [[TRON_COLS - 3, midY]] };
         grid[p1.y][p1.x] = 1;
         grid[p2.y][p2.x] = 2;
         let myDir = isHost ? 1 : 3;
@@ -1463,6 +1472,8 @@ function initTron() {
             if (data.t === 'state') {
                 p1.x = data.p1x; p1.y = data.p1y; p1.dir = data.p1d; p1.alive = data.p1a;
                 p2.x = data.p2x; p2.y = data.p2y; p2.dir = data.p2d; p2.alive = data.p2a;
+                if (data.p1path) p1.path = data.p1path;
+                if (data.p2path) p2.path = data.p2path;
                 for (let r = 0; r < TRON_ROWS; r++) for (let c = 0; c < TRON_COLS; c++) grid[r][c] = data.g[r][c];
                 gameOver = data.go;
                 winner = data.win || 0;
@@ -1494,13 +1505,13 @@ function initTron() {
                 cycle1.dir = myDir;
                 cycle2.dir = remoteDir;
                 if (now - lastMove >= TRON_MOVE_MS) {
-                    lastMove = now;
+                    lastMove += TRON_MOVE_MS;
                     for (const cycle of [cycle1, cycle2]) {
                         if (!cycle.alive) continue;
-                        const trailVal = cycle === cycle1 ? 1 : 2;
                         const n = nextCell(cycle.x, cycle.y, cycle.dir);
                         if (!valid(n)) { cycle.alive = false; continue; }
-                        grid[cycle.y][cycle.x] = trailVal;
+                        cycle.path.push([cycle.x, cycle.y]);
+                        grid[cycle.y][cycle.x] = cycle === cycle1 ? 1 : 2;
                         cycle.x = n.x;
                         cycle.y = n.y;
                     }
@@ -1513,7 +1524,7 @@ function initTron() {
                 }
                 if (now - lastSend >= SEND_INTERVAL_MS) {
                     lastSend = now;
-                    conn.send({ t: 'state', p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive, p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive, g: grid, go: gameOver, win: winner });
+                    conn.send({ t: 'state', p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive, p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive, p1path: p1.path, p2path: p2.path, g: grid, go: gameOver, win: winner });
                 }
             } else {
                 if (now - lastSend >= SEND_INTERVAL_MS) {
@@ -1532,38 +1543,40 @@ function initTron() {
                 return;
             }
             const interp = isHost ? Math.min(1, (now - lastMove) / TRON_MOVE_MS) : 0;
+            const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
+            const cx = TRON_CELL / 2;
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, TRON_W, TRON_H);
-            const trailSize = TRON_CELL - TRON_TRAIL_PAD * 2;
-            const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
-            for (let r = 0; r < TRON_ROWS; r++) {
-                for (let c = 0; c < TRON_COLS; c++) {
-                    const v = grid[r][c];
-                    if (v === 1) {
-                        ctx.fillStyle = '#00ffff';
-                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
-                    } else if (v === 2) {
-                        ctx.fillStyle = '#ff00ff';
-                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
-                    }
-                }
+            function drawTrailLine(path, color, headX, headY) {
+                if (!path || path.length === 0) return;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = TRON_LINE_WIDTH;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(path[0][0] * TRON_CELL + cx, path[0][1] * TRON_CELL + cx);
+                for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0] * TRON_CELL + cx, path[i][1] * TRON_CELL + cx);
+                ctx.lineTo(headX * TRON_CELL + cx, headY * TRON_CELL + cx);
+                ctx.stroke();
             }
+            const h1x = p1.x + TRON_DX[p1.dir] * interp;
+            const h1y = p1.y + TRON_DY[p1.dir] * interp;
+            const h2x = p2.x + TRON_DX[p2.dir] * interp;
+            const h2y = p2.y + TRON_DY[p2.dir] * interp;
+            if (p1.alive && p1.path) drawTrailLine(p1.path, '#00ffff', h1x, h1y);
+            if (p2.alive && p2.path) drawTrailLine(p2.path, '#ff00ff', h2x, h2y);
             if (p1.alive) {
-                const dx = (p1.x + TRON_DX[p1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
-                const dy = (p1.y + TRON_DY[p1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = 6;
-                ctx.fillRect(dx, dy, bikeSize, bikeSize);
+                ctx.fillRect(h1x * TRON_CELL + TRON_BIKE_PAD, h1y * TRON_CELL + TRON_BIKE_PAD, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
             if (p2.alive) {
-                const dx = (p2.x + TRON_DX[p2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
-                const dy = (p2.y + TRON_DY[p2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#ff00ff';
                 ctx.shadowColor = '#ff00ff';
                 ctx.shadowBlur = 6;
-                ctx.fillRect(dx, dy, bikeSize, bikeSize);
+                ctx.fillRect(h2x * TRON_CELL + TRON_BIKE_PAD, h2y * TRON_CELL + TRON_BIKE_PAD, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
         }
