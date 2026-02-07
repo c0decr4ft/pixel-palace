@@ -314,62 +314,8 @@
                 <button class="play-btn futuristic-btn royale-btn">DOMINATE</button>
             </div>
 
-            <!-- GAME CREATOR (Admin Only) -->
-            <div class="game-cabinet add-game-cabinet" id="addGameBtn">
-                <div class="add-game-icon">+</div>
-                <div class="add-game-text">Add Game</div>
-            </div>
         </div>
     </main>
-
-    <!-- Game Creator Modal -->
-    <div class="creator-modal" id="creatorModal">
-        <div class="creator-content">
-            <button class="creator-close" id="closeCreator">×</button>
-            <h2 class="creator-title">⚡ GAME CREATOR ⚡</h2>
-            <form class="creator-form" id="creatorForm">
-                <div class="form-group">
-                    <label>Game Name</label>
-                    <input type="text" id="gameName" placeholder="Enter game name..." required>
-                </div>
-                <div class="form-group">
-                    <label>Category</label>
-                    <select id="gameCategory">
-                        <option value="arcade">Arcade</option>
-                        <option value="puzzle">Puzzle</option>
-                        <option value="action">Action</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <input type="text" id="gameDesc" placeholder="Short description...">
-                </div>
-                <div class="form-group">
-                    <label>Icon (Emoji)</label>
-                    <input type="text" id="gameIcon" placeholder="🎮" maxlength="4">
-                </div>
-                <div class="form-group">
-                    <label>Game Code (JavaScript)</label>
-                    <textarea id="gameCode" placeholder="// Your game initialization code here...
-function initMyGame() {
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    // Add your game logic...
-}"></textarea>
-                </div>
-                <div class="creator-buttons">
-                    <button type="button" class="creator-btn cancel" id="cancelCreator">Cancel</button>
-                    <button type="submit" class="creator-btn save">Save Game</button>
-                </div>
-            </form>
-            <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,255,255,0.1); border-radius: 5px;">
-                <p style="color: #888; font-size: 0.8rem;">
-                    💡 <strong>Tip:</strong> Custom games are saved to localStorage and will persist across sessions.
-                    Export your games by copying the code for backup.
-                </p>
-            </div>
-        </div>
-    </div>
 
     <div class="game-container" id="gameContainer">
         <div class="game-header">
@@ -387,7 +333,7 @@ function initMyGame() {
         </div>
         <div class="credits">
             <span>CREATED BY</span>
-            <span class="creator-name">c0decr4ft</span>
+            <a href="https://github.com/c0decr4ft" target="_blank" rel="noopener noreferrer" class="creator-name">c0decr4ft</a>
         </div>
     </footer>
 
