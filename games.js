@@ -1184,9 +1184,9 @@ function initPong() {
 }
 
 // === TRON LIGHT CYCLES ===
-const TRON_COLS = 30;
-const TRON_ROWS = 20;
-const TRON_CELL = 20;
+const TRON_COLS = 70;
+const TRON_ROWS = 50;
+const TRON_CELL = 10;
 const TRON_W = TRON_COLS * TRON_CELL;
 const TRON_H = TRON_ROWS * TRON_CELL;
 const TRON_MOVE_MS = 120;
