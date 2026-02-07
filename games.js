@@ -667,47 +667,41 @@ function initTetris() {
 }
 
 // === PONG GAME ===
+const PONG_W = 600;
+const PONG_H = 400;
+const PADDLE_W = 15;
+const PADDLE_H = 80;
+const BALL_SIZE = 15;
+const PADDLE_SPEED = 280;
+const BALL_SPEED_BASE = 300;
+const PONG_SCORE_TO_WIN = 11;
+
+function randomRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+}
+
 function initPong() {
     currentGameTitle.textContent = 'PONG';
-    gameControls.innerHTML = 'W/S or ↑/↓ to move paddle';
+    gameControls.innerHTML = 'Choose AI or Online, then play. W/S or ↑/↓ to move.';
     
-    canvas.width = 600;
-    canvas.height = 400;
-    
-    const paddleWidth = 15;
-    const paddleHeight = 80;
-    const ballSize = 15;
-    const PADDLE_SPEED = 280;
-    const AI_SPEED = 150;
-    const BALL_SPEED_BASE = 300;
-    
-    let playerY = canvas.height / 2 - paddleHeight / 2;
-    let aiY = canvas.height / 2 - paddleHeight / 2;
-    let ballX = canvas.width / 2;
-    let ballY = canvas.height / 2;
-    let ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
-    let ballSpeedY = ((Math.random() - 0.5) * 360 / 60);
-    let playerScore = 0;
-    let aiScore = 0;
+    canvas.width = PONG_W;
+    canvas.height = PONG_H;
     
     const keys = {};
-    
-    handleKeyDown = (e) => {
-        keys[e.key] = true;
-    };
-    handleKeyUp = (e) => {
-        keys[e.key] = false;
-    };
+    handleKeyDown = (e) => { keys[e.key] = true; };
+    handleKeyUp = (e) => { keys[e.key] = false; };
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-
+    
     const touchKeys = {};
     addTouchDpad({
         onUp: (p) => { touchKeys['ArrowUp'] = p; },
         onDown: (p) => { touchKeys['ArrowDown'] = p; }
     });
     
-    // Mobile: require landscape; show rotate overlay until then
     const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
     const isPortrait = () => window.innerWidth < window.innerHeight;
     let pongGameStarted = !isTouchDevice || !isPortrait();
@@ -727,9 +721,8 @@ function initPong() {
     function checkPongOrientation() {
         if (!isTouchDevice) return;
         const portrait = isPortrait();
-        if (portrait && !pongGameStarted) {
-            rotateOverlay.style.display = 'flex';
-        } else {
+        if (portrait && !pongGameStarted) rotateOverlay.style.display = 'flex';
+        else {
             rotateOverlay.style.display = 'none';
             if (!pongGameStarted) {
                 pongGameStarted = true;
@@ -741,135 +734,437 @@ function initPong() {
     window.addEventListener('resize', checkPongOrientation);
     checkPongOrientation();
     
-    let lastTime = performance.now();
+    const modeOverlay = document.createElement('div');
+    modeOverlay.className = 'pong-mode-overlay';
+    modeOverlay.innerHTML = '<h3>Choose mode</h3><div class="pong-mode-btns"></div>';
+    const modeBtns = modeOverlay.querySelector('.pong-mode-btns');
     
-    function update(now) {
-        gameLoop = requestAnimationFrame(update);
+    const btnAI = document.createElement('button');
+    btnAI.type = 'button';
+    btnAI.className = 'pong-mode-btn ai';
+    btnAI.textContent = 'AI Play';
+    btnAI.addEventListener('click', () => {
+        modeOverlay.remove();
+        startPongAI();
+    });
+    
+    const btnOnline = document.createElement('button');
+    btnOnline.type = 'button';
+    btnOnline.className = 'pong-mode-btn online';
+    btnOnline.textContent = 'Online Play';
+    btnOnline.addEventListener('click', () => {
+        modeOverlay.remove();
+        showPongOnlineLobby();
+    });
+    
+    modeBtns.appendChild(btnAI);
+    modeBtns.appendChild(btnOnline);
+    gameContainer.appendChild(modeOverlay);
+    
+    function showPongOnlineLobby() {
+        const hasPeer = typeof Peer !== 'undefined';
+        const overlay = document.createElement('div');
+        overlay.className = 'pong-online-overlay';
+        overlay.innerHTML = '<h3>Play vs someone online</h3><div class="pong-online-btns"></div>';
+        const btns = overlay.querySelector('.pong-online-btns');
         
-        let dt = (now - lastTime) / 1000;
-        lastTime = now;
-        if (dt > 0.1) dt = 1/60;
-        const scale = Math.min(dt * 60, 3);
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'pong-online-btn back';
+        backBtn.textContent = '← Back';
+        backBtn.addEventListener('click', () => {
+            overlay.remove();
+            gameContainer.appendChild(modeOverlay);
+        });
         
-        if (!pongGameStarted) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#333';
-            ctx.font = '14px Orbitron';
-            ctx.textAlign = 'center';
-            ctx.fillText('Rotate device to play', canvas.width / 2, canvas.height / 2);
+        if (!hasPeer) {
+            overlay.querySelector('h3').textContent = 'Online play requires PeerJS (check connection).';
+            btns.appendChild(backBtn);
+            gameContainer.appendChild(overlay);
             return;
         }
         
-        // Player movement (delta-time)
-        if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
-            playerY = Math.max(0, playerY - PADDLE_SPEED * dt);
-        }
-        if (keys['s'] || keys['S'] || keys['ArrowDown'] || touchKeys['ArrowDown']) {
-            playerY = Math.min(canvas.height - paddleHeight, playerY + PADDLE_SPEED * dt);
+        const createBtn = document.createElement('button');
+        createBtn.type = 'button';
+        createBtn.className = 'pong-online-btn';
+        createBtn.textContent = 'Create Game';
+        createBtn.addEventListener('click', () => {
+            const roomCode = randomRoomCode();
+            const peer = new Peer(roomCode, { debug: 0 });
+            const codeEl = document.createElement('div');
+            codeEl.className = 'pong-room-code';
+            codeEl.textContent = roomCode;
+            const waitEl = document.createElement('p');
+            waitEl.className = 'pong-waiting-msg';
+            waitEl.textContent = 'Share this code. When someone joins, the game starts.';
+            overlay.querySelector('h3').textContent = 'Your game code';
+            btns.innerHTML = '';
+            overlay.insertBefore(codeEl, btns);
+            overlay.insertBefore(waitEl, btns);
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'pong-online-btn back';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                try { peer.destroy(); } catch (e) {}
+                gameContainer.appendChild(modeOverlay);
+            });
+            btns.appendChild(cancelBtn);
+            peer.on('open', () => {});
+            peer.on('connection', (conn) => {
+                conn.on('open', () => {
+                    overlay.remove();
+                    startPongOnline(conn, true, peer);
+                });
+            });
+            peer.on('error', (err) => {
+                waitEl.textContent = 'Error: ' + (err.message || 'Could not create game. Try again.');
+            });
+            cleanupFunctions.push(() => { try { peer.destroy(); } catch (e) {} });
+        });
+        
+        const joinBtn = document.createElement('button');
+        joinBtn.type = 'button';
+        joinBtn.className = 'pong-online-btn';
+        joinBtn.textContent = 'Join Game';
+        joinBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'pong-join-input';
+            input.placeholder = 'CODE';
+            input.maxLength = 6;
+            input.autocomplete = 'off';
+            const goBtn = document.createElement('button');
+            goBtn.type = 'button';
+            goBtn.className = 'pong-online-btn';
+            goBtn.textContent = 'Connect';
+            overlay.querySelector('h3').textContent = 'Enter game code';
+            btns.innerHTML = '';
+            btns.appendChild(input);
+            btns.appendChild(goBtn);
+            btns.appendChild(backBtn);
+            input.focus();
+            goBtn.addEventListener('click', () => {
+                const code = String(input.value).trim().toUpperCase().slice(0, 6);
+                if (!code || code.length < 4) return;
+                const peer = new Peer(undefined, { debug: 0 });
+                peer.on('open', () => {
+                    const conn = peer.connect(code);
+                    if (!conn) {
+                        overlay.querySelector('h3').textContent = 'Could not connect. Check code.';
+                        return;
+                    }
+                    conn.on('open', () => {
+                        overlay.remove();
+                        startPongOnline(conn, false, peer);
+                    });
+                    conn.on('error', () => {
+                        overlay.querySelector('h3').textContent = 'Connection failed. Check code.';
+                    });
+                });
+                peer.on('error', (err) => {
+                    overlay.querySelector('h3').textContent = 'Error: ' + (err.message || 'Try again.');
+                });
+                cleanupFunctions.push(() => { try { peer.destroy(); } catch (e) {} });
+            });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') goBtn.click(); });
+        });
+        
+        btns.appendChild(createBtn);
+        btns.appendChild(joinBtn);
+        btns.appendChild(backBtn);
+        gameContainer.appendChild(overlay);
+    }
+    
+    function startPongAI() {
+        let playerY = PONG_H / 2 - PADDLE_H / 2;
+        let aiY = PONG_H / 2 - PADDLE_H / 2;
+        let ballX = PONG_W / 2;
+        let ballY = PONG_H / 2;
+        let ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
+        let ballSpeedY = (Math.random() - 0.5) * (360 / 60);
+        let playerScore = 0;
+        let aiScore = 0;
+        
+        function resetBall() {
+            ballX = PONG_W / 2;
+            ballY = PONG_H / 2;
+            ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
+            ballSpeedY = (Math.random() - 0.5) * (360 / 60);
         }
         
-        // AI movement (delta-time)
-        const aiCenter = aiY + paddleHeight / 2;
-        if (aiCenter < ballY - 20) {
-            aiY = Math.min(canvas.height - paddleHeight, aiY + AI_SPEED * dt);
-        } else if (aiCenter > ballY + 20) {
-            aiY = Math.max(0, aiY - AI_SPEED * dt);
+        let lastTime = performance.now();
+        
+        function update(now) {
+            gameLoop = requestAnimationFrame(update);
+            let dt = (now - lastTime) / 1000;
+            lastTime = now;
+            if (dt > 0.1) dt = 1/60;
+            const scale = Math.min(dt * 60, 3);
+            
+            if (!pongGameStarted) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, PONG_W, PONG_H);
+                ctx.fillStyle = '#333';
+                ctx.font = '14px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText('Rotate device to play', PONG_W / 2, PONG_H / 2);
+                return;
+            }
+            
+            if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
+                playerY = Math.max(0, playerY - PADDLE_SPEED * dt);
+            }
+            if (keys['s'] || keys['S'] || keys['ArrowDown'] || touchKeys['ArrowDown']) {
+                playerY = Math.min(PONG_H - PADDLE_H, playerY + PADDLE_SPEED * dt);
+            }
+            
+            const totalScore = playerScore + aiScore;
+            const aiSpeedBase = 180 + Math.min(120, totalScore * 12);
+            const aiReaction = 0.92 + Math.min(0.06, totalScore * 0.006);
+            if (ballSpeedX > 0) {
+                const dist = (PONG_W - PADDLE_W - 20 - BALL_SIZE) - ballX;
+                if (dist > 0) {
+                    const t = dist / (Math.abs(ballSpeedX) * 60);
+                    let targetY = ballY + ballSpeedY * 60 * t;
+                    targetY = targetY + (Math.random() - 0.5) * 30;
+                    targetY = Math.max(0, Math.min(PONG_H - PADDLE_H, targetY));
+                    const aiCenter = aiY + PADDLE_H / 2;
+                    const diff = (targetY + PADDLE_H / 2 - aiCenter) * aiReaction;
+                    const move = Math.max(-aiSpeedBase * dt, Math.min(aiSpeedBase * dt, diff));
+                    aiY = Math.max(0, Math.min(PONG_H - PADDLE_H, aiY + move));
+                }
+            } else {
+                const aiCenter = aiY + PADDLE_H / 2;
+                if (aiCenter < ballY - 15) aiY = Math.min(PONG_H - PADDLE_H, aiY + aiSpeedBase * dt);
+                else if (aiCenter > ballY + 15) aiY = Math.max(0, aiY - aiSpeedBase * dt);
+            }
+            
+            ballX += ballSpeedX * scale;
+            ballY += ballSpeedY * scale;
+            
+            if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
+                ballSpeedY = -ballSpeedY;
+                playSound(300, 0.05);
+            }
+            
+            if (ballX <= PADDLE_W + 20 && ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_H && ballSpeedX < 0) {
+                ballSpeedX = -ballSpeedX * 1.05;
+                ballSpeedY = (ballY - playerY) / PADDLE_H * (600 / 60) - 300 / 60;
+                playSound(500, 0.1);
+            }
+            if (ballX >= PONG_W - PADDLE_W - 20 - BALL_SIZE && ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_H && ballSpeedX > 0) {
+                ballSpeedX = -ballSpeedX * 1.05;
+                ballSpeedY = (ballY - aiY) / PADDLE_H * (600 / 60) - 300 / 60;
+                playSound(500, 0.1);
+            }
+            
+            if (ballX < 0) {
+                aiScore++;
+                resetBall();
+                playSound(200, 0.3);
+            }
+            if (ballX > PONG_W) {
+                playerScore++;
+                updateScore(playerScore);
+                resetBall();
+                playSound(800, 0.2);
+            }
+            
+            ballSpeedX = Math.max(-15, Math.min(15, ballSpeedX));
+            ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
+            
+            drawPongField(ctx, PONG_W, PONG_H, PADDLE_W, PADDLE_H, BALL_SIZE);
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(20, playerY, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#ff00ff';
+            ctx.shadowColor = '#ff00ff';
+            ctx.fillRect(PONG_W - PADDLE_W - 20, aiY, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#fff';
+            ctx.beginPath();
+            ctx.arc(ballX + BALL_SIZE/2, ballY + BALL_SIZE/2, BALL_SIZE/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            ctx.font = '48px "Press Start 2P"';
+            ctx.fillStyle = '#00ffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(playerScore, PONG_W / 4, 60);
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillText(aiScore, 3 * PONG_W / 4, 60);
         }
         
-        // Ball movement (delta-time)
-        ballX += ballSpeedX * scale;
-        ballY += ballSpeedY * scale;
-        
-        // Ball collision with top/bottom
-        if (ballY <= 0 || ballY >= canvas.height - ballSize) {
-            ballSpeedY = -ballSpeedY;
-            playSound(300, 0.05);
-        }
-        
-        // Ball collision with paddles
-        if (ballX <= paddleWidth + 20 && 
-            ballY + ballSize >= playerY && 
-            ballY <= playerY + paddleHeight &&
-            ballSpeedX < 0) {
-            ballSpeedX = -ballSpeedX * 1.05;
-            const hitPos = (ballY - playerY) / paddleHeight;
-            ballSpeedY = (hitPos - 0.5) * (600 / 60);
-            playSound(500, 0.1);
-        }
-        
-        if (ballX >= canvas.width - paddleWidth - 20 - ballSize && 
-            ballY + ballSize >= aiY && 
-            ballY <= aiY + paddleHeight &&
-            ballSpeedX > 0) {
-            ballSpeedX = -ballSpeedX * 1.05;
-            const hitPos = (ballY - aiY) / paddleHeight;
-            ballSpeedY = (hitPos - 0.5) * (600 / 60);
-            playSound(500, 0.1);
-        }
-        
-        if (ballX < 0) {
-            aiScore++;
-            resetBall();
-            playSound(200, 0.3);
-        }
-        if (ballX > canvas.width) {
-            playerScore++;
-            updateScore(playerScore);
-            resetBall();
-            playSound(800, 0.2);
-        }
-        
-        ballSpeedX = Math.max(-15, Math.min(15, ballSpeedX));
-        ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
-        
-        // Draw
+        gameLoop = requestAnimationFrame(update);
+    }
+    
+    function drawPongField(ctx, w, h, pw, ph, ballSize) {
         ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
+        ctx.fillRect(0, 0, w, h);
         ctx.setLineDash([10, 10]);
         ctx.strokeStyle = '#333';
         ctx.beginPath();
-        ctx.moveTo(canvas.width / 2, 0);
-        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.moveTo(w / 2, 0);
+        ctx.lineTo(w / 2, h);
         ctx.stroke();
         ctx.setLineDash([]);
-        
-        ctx.fillStyle = '#00ffff';
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 8;
-        ctx.fillRect(20, playerY, paddleWidth, paddleHeight);
-        ctx.fillStyle = '#ff00ff';
-        ctx.shadowColor = '#ff00ff';
-        ctx.fillRect(canvas.width - paddleWidth - 20, aiY, paddleWidth, paddleHeight);
-        ctx.fillStyle = '#fff';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#fff';
-        ctx.beginPath();
-        ctx.arc(ballX + ballSize/2, ballY + ballSize/2, ballSize/2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
-        
-        ctx.font = '48px "Press Start 2P"';
-        ctx.fillStyle = '#00ffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(playerScore, canvas.width / 4, 60);
-        ctx.fillStyle = '#ff00ff';
-        ctx.fillText(aiScore, 3 * canvas.width / 4, 60);
     }
     
-    function resetBall() {
-        ballX = canvas.width / 2;
-        ballY = canvas.height / 2;
-        ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
-        ballSpeedY = (Math.random() - 0.5) * (360 / 60);
+    function startPongOnline(conn, isHost, peerRef) {
+        let paddle1Y = PONG_H / 2 - PADDLE_H / 2;
+        let paddle2Y = PONG_H / 2 - PADDLE_H / 2;
+        let ballX = PONG_W / 2;
+        let ballY = PONG_H / 2;
+        let ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
+        let ballSpeedY = (Math.random() - 0.5) * (360 / 60);
+        let score1 = 0;
+        let score2 = 0;
+        let remotePaddle = PONG_H / 2 - PADDLE_H / 2;
+        let gameOver = false;
+        
+        cleanupFunctions.push(() => {
+            try { conn.close(); } catch (e) {}
+            try { if (peerRef) peerRef.destroy(); } catch (e) {}
+        });
+        
+        conn.on('data', (data) => {
+            if (data.t === 'paddle') remotePaddle = data.y;
+            if (data.t === 'state') {
+                ballX = data.ballX;
+                ballY = data.ballY;
+                ballSpeedX = data.ballSpeedX;
+                ballSpeedY = data.ballSpeedY;
+                score1 = data.score1;
+                score2 = data.score2;
+                paddle1Y = data.paddle1Y;
+                if (isHost) paddle2Y = remotePaddle;
+            }
+        });
+        conn.on('close', () => { gameOver = true; });
+        conn.on('error', () => { gameOver = true; });
+        
+        function resetBall() {
+            ballX = PONG_W / 2;
+            ballY = PONG_H / 2;
+            ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
+            ballSpeedY = (Math.random() - 0.5) * (360 / 60);
+        }
+        
+        let lastTime = performance.now();
+        const SEND_INTERVAL = 1/25;
+        let sendAcc = 0;
+        
+        function update(now) {
+            gameLoop = requestAnimationFrame(update);
+            let dt = (now - lastTime) / 1000;
+            lastTime = now;
+            if (dt > 0.1) dt = 1/60;
+            const scale = Math.min(dt * 60, 3);
+            
+            if (gameOver) {
+                drawPongField(ctx, PONG_W, PONG_H, PADDLE_W, PADDLE_H, BALL_SIZE);
+                ctx.fillStyle = '#ff4444';
+                ctx.font = '16px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText('Opponent disconnected', PONG_W / 2, PONG_H / 2);
+                return;
+            }
+            
+            const myPaddle = isHost ? paddle1Y : paddle2Y;
+            const otherPaddle = isHost ? paddle2Y : paddle1Y;
+            
+            if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
+                if (isHost) paddle1Y = Math.max(0, paddle1Y - PADDLE_SPEED * dt);
+                else paddle2Y = Math.max(0, paddle2Y - PADDLE_SPEED * dt);
+            }
+            if (keys['s'] || keys['S'] || keys['ArrowDown'] || touchKeys['ArrowDown']) {
+                if (isHost) paddle1Y = Math.min(PONG_H - PADDLE_H, paddle1Y + PADDLE_SPEED * dt);
+                else paddle2Y = Math.min(PONG_H - PADDLE_H, paddle2Y + PADDLE_SPEED * dt);
+            }
+            
+            if (isHost) {
+                paddle2Y = remotePaddle;
+                ballX += ballSpeedX * scale;
+                ballY += ballSpeedY * scale;
+                
+                if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
+                    ballSpeedY = -ballSpeedY;
+                    playSound(300, 0.05);
+                }
+                const px = 20;
+                const ox = PONG_W - PADDLE_W - 20 - BALL_SIZE;
+                if (ballX <= px + PADDLE_W && ballY + BALL_SIZE >= paddle1Y && ballY <= paddle1Y + PADDLE_H && ballSpeedX < 0) {
+                    ballSpeedX = -ballSpeedX * 1.05;
+                    ballSpeedY = (ballY - paddle1Y) / PADDLE_H * (600/60) - 300/60;
+                    playSound(500, 0.1);
+                }
+                if (ballX >= ox && ballY + BALL_SIZE >= paddle2Y && ballY <= paddle2Y + PADDLE_H && ballSpeedX > 0) {
+                    ballSpeedX = -ballSpeedX * 1.05;
+                    ballSpeedY = (ballY - paddle2Y) / PADDLE_H * (600/60) - 300/60;
+                    playSound(500, 0.1);
+                }
+                if (ballX < 0) {
+                    score2++;
+                    resetBall();
+                    playSound(200, 0.3);
+                }
+                if (ballX > PONG_W) {
+                    score1++;
+                    updateScore(score1);
+                    resetBall();
+                    playSound(800, 0.2);
+                }
+                ballSpeedX = Math.max(-15, Math.min(15, ballSpeedX));
+                ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
+                
+                sendAcc += dt;
+                if (sendAcc >= SEND_INTERVAL) {
+                    sendAcc = 0;
+                    conn.send({ t: 'state', ballX, ballY, ballSpeedX, ballSpeedY, score1, score2, paddle1Y, paddle2Y });
+                }
+            } else {
+                paddle2Y = remotePaddle;
+                sendAcc += dt;
+                if (sendAcc >= SEND_INTERVAL) {
+                    sendAcc = 0;
+                    conn.send({ t: 'paddle', y: paddle2Y });
+                }
+            }
+            
+            drawPongField(ctx, PONG_W, PONG_H, PADDLE_W, PADDLE_H, BALL_SIZE);
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(20, paddle1Y, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#ff00ff';
+            ctx.shadowColor = '#ff00ff';
+            ctx.fillRect(PONG_W - PADDLE_W - 20, paddle2Y, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#fff';
+            ctx.beginPath();
+            ctx.arc(ballX + BALL_SIZE/2, ballY + BALL_SIZE/2, BALL_SIZE/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            ctx.font = '48px "Press Start 2P"';
+            ctx.fillStyle = '#00ffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(score1, PONG_W / 4, 60);
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillText(score2, 3 * PONG_W / 4, 60);
+        }
+        
+        gameLoop = requestAnimationFrame(update);
     }
-    
-    gameLoop = requestAnimationFrame(update);
     
     cleanupFunctions.push(() => {
         gameContainer.classList.remove('pong-landscape-layout');
+        modeOverlay.remove();
         rotateOverlay.remove();
         pongGameArea.remove();
         gameContainer.insertBefore(canvas, gameControls);
