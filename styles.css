@@ -400,6 +400,24 @@ body {
     box-shadow: 0 0 20px white;
 }
 
+.tron-preview {
+    background: #0a0a1a;
+    position: relative;
+    overflow: hidden;
+}
+
+.tron-demo {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(0,255,255,0.3) 30%, rgba(255,0,255,0.3) 70%, transparent 100%);
+    animation: tronPulse 2s ease-in-out infinite;
+}
+
+@keyframes tronPulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
 @keyframes pongBounce {
     0% { transform: translate(-50px, -30px); }
     100% { transform: translate(50px, 30px); }

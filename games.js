@@ -103,6 +103,7 @@ const GAME_DISPLAY_NAMES = {
     snake: 'SNAKE',
     tetris: 'TETRIS',
     pong: 'PONG',
+    tron: 'TRON',
     breakout: 'BREAKOUT',
     spaceinvaders: 'SPACE INVADERS',
     memory: 'MEMORY',
@@ -141,6 +142,9 @@ function startGame(gameName) {
             break;
         case 'pong':
             initPong();
+            break;
+        case 'tron':
+            initTron();
             break;
         case 'breakout':
             initBreakout();
@@ -881,9 +885,10 @@ function initPong() {
         gameContainer.appendChild(overlay);
     }
     
-    function startPongAI() {
+        function startPongAI() {
         let playerY = PONG_H / 2 - PADDLE_H / 2;
         let aiY = PONG_H / 2 - PADDLE_H / 2;
+        let aiTargetY = aiY;
         let ballX = PONG_W / 2;
         let ballY = PONG_H / 2;
         let ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
@@ -925,25 +930,25 @@ function initPong() {
             }
             
             const totalScore = playerScore + aiScore;
-            const aiSpeedBase = 180 + Math.min(120, totalScore * 12);
-            const aiReaction = 0.92 + Math.min(0.06, totalScore * 0.006);
+            const aiSpeedMax = 220 + Math.min(80, totalScore * 10);
+            const aiSmooth = 3.5;
             if (ballSpeedX > 0) {
                 const dist = (PONG_W - PADDLE_W - 20 - BALL_SIZE) - ballX;
                 if (dist > 0) {
                     const t = dist / (Math.abs(ballSpeedX) * 60);
-                    let targetY = ballY + ballSpeedY * 60 * t;
-                    targetY = targetY + (Math.random() - 0.5) * 30;
+                    let targetY = ballY + ballSpeedY * 60 * t - PADDLE_H / 2;
                     targetY = Math.max(0, Math.min(PONG_H - PADDLE_H, targetY));
-                    const aiCenter = aiY + PADDLE_H / 2;
-                    const diff = (targetY + PADDLE_H / 2 - aiCenter) * aiReaction;
-                    const move = Math.max(-aiSpeedBase * dt, Math.min(aiSpeedBase * dt, diff));
-                    aiY = Math.max(0, Math.min(PONG_H - PADDLE_H, aiY + move));
+                    aiTargetY += (targetY - aiTargetY) * Math.min(1, 8 * dt);
                 }
             } else {
-                const aiCenter = aiY + PADDLE_H / 2;
-                if (aiCenter < ballY - 15) aiY = Math.min(PONG_H - PADDLE_H, aiY + aiSpeedBase * dt);
-                else if (aiCenter > ballY + 15) aiY = Math.max(0, aiY - aiSpeedBase * dt);
+                const centerY = ballY - PADDLE_H / 2;
+                aiTargetY += (Math.max(0, Math.min(PONG_H - PADDLE_H, centerY)) - aiTargetY) * Math.min(1, 4 * dt);
             }
+            const aiCenter = aiY + PADDLE_H / 2;
+            const targetCenter = aiTargetY + PADDLE_H / 2;
+            const diff = targetCenter - aiCenter;
+            const move = Math.max(-aiSpeedMax * dt, Math.min(aiSpeedMax * dt, diff * aiSmooth * dt));
+            aiY = Math.max(0, Math.min(PONG_H - PADDLE_H, aiY + move));
             
             ballX += ballSpeedX * scale;
             ballY += ballSpeedY * scale;
@@ -1176,6 +1181,373 @@ function initPong() {
         window.removeEventListener('orientationchange', checkPongOrientation);
         window.removeEventListener('resize', checkPongOrientation);
     });
+}
+
+// === TRON LIGHT CYCLES ===
+const TRON_COLS = 30;
+const TRON_ROWS = 20;
+const TRON_CELL = 20;
+const TRON_W = TRON_COLS * TRON_CELL;
+const TRON_H = TRON_ROWS * TRON_CELL;
+const TRON_MOVE_MS = 120;
+const TRON_DX = [0, 1, 0, -1];
+const TRON_DY = [-1, 0, 1, 0];
+
+function initTron() {
+    currentGameTitle.textContent = 'TRON';
+    gameControls.innerHTML = 'Arrow keys or touch to turn. Don\'t hit walls or trails.';
+    canvas.width = TRON_W;
+    canvas.height = TRON_H;
+    const keys = {};
+    let nextDir = null;
+    handleKeyDown = (e) => {
+        keys[e.key] = true;
+        const k = e.key;
+        if (k === 'ArrowUp' || k === 'w' || k === 'W') nextDir = 0;
+        else if (k === 'ArrowRight' || k === 'd' || k === 'D') nextDir = 1;
+        else if (k === 'ArrowDown' || k === 's' || k === 'S') nextDir = 2;
+        else if (k === 'ArrowLeft' || k === 'a' || k === 'A') nextDir = 3;
+    };
+    handleKeyUp = (e) => { keys[e.key] = false; };
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    const touchKeys = {};
+    addTouchDpad({
+        onUp: (p) => { if (p) nextDir = 0; },
+        onDown: (p) => { if (p) nextDir = 2; },
+        onLeft: (p) => { if (p) nextDir = 3; },
+        onRight: (p) => { if (p) nextDir = 1; }
+    });
+    const modeOverlay = document.createElement('div');
+    modeOverlay.className = 'pong-mode-overlay';
+    modeOverlay.innerHTML = '<h3>Choose mode</h3><div class="pong-mode-btns"></div>';
+    const modeBtns = modeOverlay.querySelector('.pong-mode-btns');
+    const btnAI = document.createElement('button');
+    btnAI.type = 'button';
+    btnAI.className = 'pong-mode-btn ai';
+    btnAI.textContent = 'AI Play';
+    btnAI.addEventListener('click', () => { modeOverlay.remove(); startTronAI(); });
+    const btnOnline = document.createElement('button');
+    btnOnline.type = 'button';
+    btnOnline.className = 'pong-mode-btn online';
+    btnOnline.textContent = 'Online Play';
+    btnOnline.addEventListener('click', () => { modeOverlay.remove(); showTronOnlineLobby(); });
+    modeBtns.appendChild(btnAI);
+    modeBtns.appendChild(btnOnline);
+    gameContainer.appendChild(modeOverlay);
+
+    function startTronAI() {
+        let grid = Array(TRON_ROWS).fill(0).map(() => Array(TRON_COLS).fill(0));
+        let p1 = { x: 2, y: Math.floor(TRON_ROWS/2), dir: 1, alive: true };
+        let p2 = { x: TRON_COLS - 3, y: Math.floor(TRON_ROWS/2), dir: 3, alive: true };
+        grid[p1.y][p1.x] = 1;
+        grid[p2.y][p2.x] = 2;
+        let playerDir = 1;
+        let lastMove = performance.now();
+        let gameOver = false;
+        let winner = 0;
+
+        function canTurn(currentDir, newDir) {
+            if (currentDir === newDir) return true;
+            return (currentDir + 2) % 4 !== newDir;
+        }
+        function nextCell(x, y, dir) {
+            return { x: x + TRON_DX[dir], y: y + TRON_DY[dir] };
+        }
+        function valid(c) {
+            return c.x >= 0 && c.x < TRON_COLS && c.y >= 0 && c.y < TRON_ROWS && grid[c.y][c.x] === 0;
+        }
+        function aiChooseDir(cycle) {
+            const perp = [(cycle.dir + 1) % 4, (cycle.dir + 3) % 4];
+            const options = [cycle.dir, perp[0], perp[1]];
+            for (const d of options) {
+                const n = nextCell(cycle.x, cycle.y, d);
+                if (valid(n)) return d;
+            }
+            return cycle.dir;
+        }
+
+        function update(now) {
+            gameLoop = requestAnimationFrame(update);
+            if (gameOver) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, TRON_W, TRON_H);
+                ctx.fillStyle = winner === 1 ? '#00ffff' : '#ff00ff';
+                ctx.font = '20px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText(winner === 1 ? 'YOU WIN' : 'AI WINS', TRON_W/2, TRON_H/2 - 10);
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px "Press Start 2P"';
+                ctx.fillText('Back to lobby to replay', TRON_W/2, TRON_H/2 + 25);
+                return;
+            }
+            if (nextDir !== null && canTurn(playerDir, nextDir)) playerDir = nextDir;
+            if (now - lastMove < TRON_MOVE_MS) {
+                drawTronGrid(grid, p1, p2, 1, 2);
+                return;
+            }
+            lastMove = now;
+            p1.dir = playerDir;
+            p2.dir = aiChooseDir(p2);
+            const moveOrder = p1.y < p2.y ? [p1, p2] : [p2, p1];
+            for (const cycle of moveOrder) {
+                if (!cycle.alive) continue;
+                const trailVal = cycle === p1 ? 1 : 2;
+                const n = nextCell(cycle.x, cycle.y, cycle.dir);
+                if (!valid(n)) {
+                    cycle.alive = false;
+                    continue;
+                }
+                grid[cycle.y][cycle.x] = trailVal;
+                cycle.x = n.x;
+                cycle.y = n.y;
+            }
+            if (!p1.alive || !p2.alive) {
+                gameOver = true;
+                winner = p1.alive ? 1 : 2;
+                if (winner === 1) updateScore(1);
+                playSound(winner === 1 ? 800 : 200, 0.2);
+            }
+            drawTronGrid(grid, p1, p2, 1, 2);
+        }
+        function drawTronGrid(grid, c1, c2, trail1, trail2) {
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, TRON_W, TRON_H);
+            const pad = 1;
+            for (let r = 0; r < TRON_ROWS; r++) {
+                for (let c = 0; c < TRON_COLS; c++) {
+                    const v = grid[r][c];
+                    if (v === 1) { ctx.fillStyle = '#00ffff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
+                    else if (v === 2) { ctx.fillStyle = '#ff00ff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
+                }
+            }
+            if (c1.alive) {
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(c1.x*TRON_CELL+pad, c1.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.shadowBlur = 0;
+            }
+            if (c2.alive) {
+                ctx.fillStyle = '#ff00ff';
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(c2.x*TRON_CELL+pad, c2.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.shadowBlur = 0;
+            }
+        }
+        gameLoop = requestAnimationFrame(update);
+    }
+
+    function showTronOnlineLobby() {
+        const hasPeer = typeof Peer !== 'undefined';
+        const overlay = document.createElement('div');
+        overlay.className = 'pong-online-overlay';
+        overlay.innerHTML = '<h3>Play vs someone online</h3><div class="pong-online-btns"></div>';
+        const btns = overlay.querySelector('.pong-online-btns');
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'pong-online-btn back';
+        backBtn.textContent = '← Back';
+        backBtn.addEventListener('click', () => { overlay.remove(); gameContainer.appendChild(modeOverlay); });
+        if (!hasPeer) {
+            overlay.querySelector('h3').textContent = 'Online play requires PeerJS (check connection).';
+            btns.appendChild(backBtn);
+            gameContainer.appendChild(overlay);
+            return;
+        }
+        const createBtn = document.createElement('button');
+        createBtn.type = 'button';
+        createBtn.className = 'pong-online-btn';
+        createBtn.textContent = 'Create Game';
+        createBtn.addEventListener('click', () => {
+            const roomCode = randomRoomCode();
+            const peer = new Peer(roomCode, { debug: 0 });
+            const codeEl = document.createElement('div');
+            codeEl.className = 'pong-room-code';
+            codeEl.textContent = roomCode;
+            const waitEl = document.createElement('p');
+            waitEl.className = 'pong-waiting-msg';
+            waitEl.textContent = 'Share this code. When someone joins, the game starts.';
+            overlay.querySelector('h3').textContent = 'Your game code';
+            btns.innerHTML = '';
+            overlay.insertBefore(codeEl, btns);
+            overlay.insertBefore(waitEl, btns);
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'pong-online-btn back';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => { overlay.remove(); try { peer.destroy(); } catch(e){} gameContainer.appendChild(modeOverlay); });
+            btns.appendChild(cancelBtn);
+            peer.on('open', () => {});
+            peer.on('connection', (conn) => {
+                conn.on('open', () => { overlay.remove(); startTronOnline(conn, true, peer); });
+            });
+            peer.on('error', (err) => { waitEl.textContent = 'Error: ' + (err.message || 'Could not create game.'); });
+            cleanupFunctions.push(() => { try { peer.destroy(); } catch(e) {} });
+        });
+        const joinBtn = document.createElement('button');
+        joinBtn.type = 'button';
+        joinBtn.className = 'pong-online-btn';
+        joinBtn.textContent = 'Join Game';
+        joinBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'pong-join-input';
+            input.placeholder = 'e.g. AB3XY9';
+            input.maxLength = 6;
+            input.autocomplete = 'off';
+            input.setAttribute('inputmode', 'text');
+            input.setAttribute('autocapitalize', 'characters');
+            input.setAttribute('spellcheck', 'false');
+            const goBtn = document.createElement('button');
+            goBtn.type = 'button';
+            goBtn.className = 'pong-online-btn';
+            goBtn.textContent = 'Connect';
+            overlay.querySelector('h3').textContent = 'Enter game code';
+            btns.innerHTML = '';
+            btns.appendChild(input);
+            btns.appendChild(goBtn);
+            btns.appendChild(backBtn);
+            input.focus();
+            goBtn.addEventListener('click', () => {
+                const code = String(input.value).trim().toUpperCase().slice(0, 6);
+                if (!code || code.length < 4) return;
+                const peer = new Peer(undefined, { debug: 0 });
+                peer.on('open', () => {
+                    const conn = peer.connect(code);
+                    if (!conn) { overlay.querySelector('h3').textContent = 'Could not connect.'; return; }
+                    conn.on('open', () => { overlay.remove(); startTronOnline(conn, false, peer); });
+                    conn.on('error', () => { overlay.querySelector('h3').textContent = 'Connection failed. Check code.'; });
+                });
+                peer.on('error', (err) => { overlay.querySelector('h3').textContent = 'Error: ' + (err.message || 'Try again.'); });
+                cleanupFunctions.push(() => { try { peer.destroy(); } catch(e) {} });
+            });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') goBtn.click(); });
+        });
+        btns.appendChild(createBtn);
+        btns.appendChild(joinBtn);
+        btns.appendChild(backBtn);
+        gameContainer.appendChild(overlay);
+    }
+
+    function startTronOnline(conn, isHost, peerRef) {
+        let grid = Array(TRON_ROWS).fill(0).map(() => Array(TRON_COLS).fill(0));
+        let p1 = { x: 2, y: Math.floor(TRON_ROWS/2), dir: 1, alive: true };
+        let p2 = { x: TRON_COLS - 3, y: Math.floor(TRON_ROWS/2), dir: 3, alive: true };
+        grid[p1.y][p1.x] = 1;
+        grid[p2.y][p2.x] = 2;
+        let myDir = isHost ? 1 : 3;
+        let remoteDir = isHost ? 3 : 1;
+        let lastMove = performance.now();
+        let lastSend = 0;
+        let lastFrame = performance.now();
+        let gameOver = false;
+        let winner = 0;
+        let disconnected = false;
+        cleanupFunctions.push(() => { try { conn.close(); } catch(e){} try { if (peerRef) peerRef.destroy(); } catch(e){} });
+        conn.on('data', (data) => {
+            if (data.t === 'dir') remoteDir = data.d;
+            if (data.t === 'state') {
+                p1.x = data.p1x; p1.y = data.p1y; p1.dir = data.p1d; p1.alive = data.p1a;
+                p2.x = data.p2x; p2.y = data.p2y; p2.dir = data.p2d; p2.alive = data.p2a;
+                for (let r = 0; r < TRON_ROWS; r++) for (let c = 0; c < TRON_COLS; c++) grid[r][c] = data.g[r][c];
+                gameOver = data.go;
+                winner = data.win || 0;
+            }
+        });
+        conn.on('close', () => { disconnected = true; });
+        conn.on('error', () => { disconnected = true; });
+        function canTurn(cur, newD) { return cur === newD || (cur + 2) % 4 !== newD; }
+        function nextCell(x, y, d) { return { x: x + TRON_DX[d], y: y + TRON_DY[d] }; }
+        function valid(c) { return c.x >= 0 && c.x < TRON_COLS && c.y >= 0 && c.y < TRON_ROWS && grid[c.y][c.x] === 0; }
+        const SEND_INTERVAL_MS = 66;
+        function update(now) {
+            gameLoop = requestAnimationFrame(update);
+            const dt = (now - lastFrame) / 1000;
+            lastFrame = now;
+            if (disconnected) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, TRON_W, TRON_H);
+                ctx.fillStyle = '#f44';
+                ctx.font = '14px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText('Opponent disconnected', TRON_W/2, TRON_H/2);
+                return;
+            }
+            if (nextDir !== null && canTurn(myDir, nextDir)) { myDir = nextDir; nextDir = null; }
+            if (isHost) {
+                const cycle1 = p1;
+                const cycle2 = p2;
+                cycle1.dir = myDir;
+                cycle2.dir = remoteDir;
+                if (now - lastMove >= TRON_MOVE_MS) {
+                    lastMove = now;
+                    for (const cycle of [cycle1, cycle2]) {
+                        if (!cycle.alive) continue;
+                        const trailVal = cycle === cycle1 ? 1 : 2;
+                        const n = nextCell(cycle.x, cycle.y, cycle.dir);
+                        if (!valid(n)) { cycle.alive = false; continue; }
+                        grid[cycle.y][cycle.x] = trailVal;
+                        cycle.x = n.x;
+                        cycle.y = n.y;
+                    }
+                    if (!cycle1.alive || !cycle2.alive) {
+                        gameOver = true;
+                        winner = cycle1.alive ? 1 : 2;
+                        if (winner === 1) updateScore(1);
+                        playSound(winner === 1 ? 800 : 200, 0.2);
+                    }
+                }
+                if (now - lastSend >= SEND_INTERVAL_MS) {
+                    lastSend = now;
+                    conn.send({ t: 'state', p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive, p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive, g: grid, go: gameOver, win: winner });
+                }
+            } else {
+                if (now - lastSend >= SEND_INTERVAL_MS) {
+                    lastSend = now;
+                    conn.send({ t: 'dir', d: myDir });
+                }
+            }
+            if (gameOver) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, TRON_W, TRON_H);
+                const me = isHost ? 1 : 2;
+                ctx.fillStyle = winner === me ? '#00ff00' : '#ff4444';
+                ctx.font = '20px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText(winner === me ? 'YOU WIN' : 'YOU LOSE', TRON_W/2, TRON_H/2 - 10);
+                return;
+            }
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, TRON_W, TRON_H);
+            const pad = 1;
+            for (let r = 0; r < TRON_ROWS; r++) {
+                for (let c = 0; c < TRON_COLS; c++) {
+                    const v = grid[r][c];
+                    if (v === 1) { ctx.fillStyle = '#00ffff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
+                    else if (v === 2) { ctx.fillStyle = '#ff00ff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
+                }
+            }
+            if (p1.alive) {
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 6;
+                ctx.fillRect(p1.x*TRON_CELL+pad, p1.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.shadowBlur = 0;
+            }
+            if (p2.alive) {
+                ctx.fillStyle = '#ff00ff';
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 6;
+                ctx.fillRect(p2.x*TRON_CELL+pad, p2.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.shadowBlur = 0;
+            }
+        }
+        gameLoop = requestAnimationFrame(update);
+    }
+
+    cleanupFunctions.push(() => { modeOverlay.remove(); });
 }
 
 // === BREAKOUT GAME ===
