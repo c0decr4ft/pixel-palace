@@ -3018,9 +3018,26 @@ function initRace() {
         p.screen.scale = scale;
     }
     
+    // Helper function to lighten color
+    function lightenColor(color, percent) {
+        // Simple implementation - if color is hex, convert and lighten
+        if (typeof color === 'string' && color.startsWith('#')) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const r = Math.min(255, ((num >> 16) & 0xFF) + percent);
+            const g = Math.min(255, ((num >> 8) & 0xFF) + percent);
+            const b = Math.min(255, (num & 0xFF) + percent);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+        return color;
+    }
+    
     // Draw polygon
     function drawPoly(x1, y1, x2, y2, x3, y3, x4, y4, color) {
-        ctx.fillStyle = color;
+        if (typeof color === 'string' && color.includes('gradient')) {
+            ctx.fillStyle = color;
+        } else {
+            ctx.fillStyle = color;
+        }
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -3495,22 +3512,41 @@ function initRace() {
             return;
         }
         
-        // Sky gradient (changes based on track)
+        // Advanced sky gradient with animated colors
+        const time = Date.now() * 0.001;
+        const hueShift = (time * 10) % 360;
         const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height / 2);
-        skyGradient.addColorStop(0, '#0a0a2e');
-        skyGradient.addColorStop(0.3, '#1a1a5e');
-        skyGradient.addColorStop(0.7, '#3d1a6e');
-        skyGradient.addColorStop(1, '#ff4500');
+        skyGradient.addColorStop(0, `hsl(${(hueShift + 240) % 360}, 80%, 15%)`);
+        skyGradient.addColorStop(0.2, `hsl(${(hueShift + 260) % 360}, 70%, 20%)`);
+        skyGradient.addColorStop(0.5, `hsl(${(hueShift + 280) % 360}, 60%, 25%)`);
+        skyGradient.addColorStop(0.8, `hsl(${(hueShift + 20) % 360}, 80%, 40%)`);
+        skyGradient.addColorStop(1, `hsl(${(hueShift + 30) % 360}, 100%, 50%)`);
         ctx.fillStyle = skyGradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
         
-        // Stars
-        ctx.fillStyle = '#fff';
-        for (let i = 0; i < 80; i++) {
-            const sx = (i * 137 + player.z * 0.01) % canvas.width;
-            const sy = (i * 73) % (canvas.height / 3);
-            const twinkle = Math.sin(Date.now() * 0.005 + i) > 0.5 ? 3 : 2;
-            ctx.fillRect(sx, sy, twinkle, twinkle);
+        // Enhanced starfield with varying sizes and brightness
+        for (let i = 0; i < 150; i++) {
+            const sx = (i * 137.508 + player.z * 0.01) % canvas.width;
+            const sy = (i * 73.197) % (canvas.height / 3);
+            const brightness = (Math.sin(time * 2 + i * 0.1) + 1) / 2;
+            const size = 1 + Math.floor((i % 4));
+            const starColor = `rgba(255, 255, 255, ${brightness * (0.6 + size * 0.2)})`;
+            ctx.fillStyle = starColor;
+            ctx.shadowColor = starColor;
+            ctx.shadowBlur = size * 3;
+            ctx.fillRect(sx - size/2, sy - size/2, size, size);
+        }
+        ctx.shadowBlur = 0;
+        
+        // Shooting stars
+        for (let i = 0; i < 3; i++) {
+            const trailX = ((time * 100 + i * 200 + player.z * 0.01) % 1200) - 200;
+            const trailY = 50 + (i * 80);
+            const trailGrad = ctx.createLinearGradient(trailX, trailY, trailX + 40, trailY);
+            trailGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            trailGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = trailGrad;
+            ctx.fillRect(trailX, trailY, 40, 2);
         }
         
         // Distant city/mountains
@@ -3597,14 +3633,31 @@ function initRace() {
                 segment.rumbleColor
             );
             
-            // Road
+            // Enhanced road with gradient and glow
+            const roadGrad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            roadGrad.addColorStop(0, segment.color);
+            roadGrad.addColorStop(0.5, lightenColor(segment.color, 10));
+            roadGrad.addColorStop(1, segment.color);
             drawPoly(
                 p1.x - p1.w, p1.y,
                 p1.x + p1.w, p1.y,
                 p2.x + p2.w, p2.y,
                 p2.x - p2.w, p2.y,
-                segment.color
+                roadGrad
             );
+            
+            // Road center line glow
+            if (n < 20) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
             
             // Lane markings
             if (Math.floor(segmentIndex / 4) % 2 === 0) {
@@ -4658,15 +4711,31 @@ function initTanks() {
             ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
         }
         
-        // Background gradient
-        const bgGrad = ctx.createRadialGradient(400, 300, 0, 400, 300, 500);
-        bgGrad.addColorStop(0, '#1a1a2e');
-        bgGrad.addColorStop(1, '#0a0a15');
+        // Advanced battlefield background
+        const time = gameTime * 0.01;
+        const bgGrad = ctx.createRadialGradient(400, 300, 0, 400, 300, 600);
+        bgGrad.addColorStop(0, '#1a1a3e');
+        bgGrad.addColorStop(0.4, '#0f0f2a');
+        bgGrad.addColorStop(0.7, '#0a0a1a');
+        bgGrad.addColorStop(1, '#000000');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, 800, 600);
         
-        // Animated grid
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+        // Animated smoke/dust clouds
+        for (let i = 0; i < 4; i++) {
+            const cloudX = ((time * 10 + i * 200) % 1000) - 100;
+            const cloudY = 200 + Math.sin(time * 0.3 + i) * 150;
+            const cloudGrad = ctx.createRadialGradient(cloudX, cloudY, 0, cloudX, cloudY, 120);
+            cloudGrad.addColorStop(0, `rgba(${40 + i * 10}, ${30 + i * 5}, ${20 + i * 5}, 0.2)`);
+            cloudGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = cloudGrad;
+            ctx.fillRect(cloudX - 120, cloudY - 120, 240, 240);
+        }
+        
+        // Enhanced animated grid with glow
+        ctx.strokeStyle = 'rgba(0, 255, 136, 0.15)';
+        ctx.shadowColor = 'rgba(0, 255, 136, 0.3)';
+        ctx.shadowBlur = 2;
         ctx.lineWidth = 1;
         const gridOffset = (gameTime * 0.5) % 50;
         for (let x = -50 + gridOffset; x < 850; x += 50) {
@@ -4681,6 +4750,7 @@ function initTanks() {
             ctx.lineTo(800, y);
             ctx.stroke();
         }
+        ctx.shadowBlur = 0;
         
         // Track marks
         trackMarks.forEach(t => {
@@ -4756,29 +4826,72 @@ function initTanks() {
             ctx.shadowBlur = 0;
         });
         
-        // Explosions
+        // Enhanced explosions with multiple layers
         explosions.forEach(e => {
+            // Outer ring
             ctx.beginPath();
             ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
             ctx.strokeStyle = `hsla(${e.hue}, 100%, 60%, ${e.alpha})`;
+            ctx.lineWidth = 4;
+            ctx.shadowColor = `hsl(${e.hue}, 100%, 50%)`;
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            
+            // Middle ring
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, e.radius * 0.7, 0, Math.PI * 2);
+            ctx.strokeStyle = `hsla(${e.hue + 20}, 100%, 70%, ${e.alpha * 0.8})`;
             ctx.lineWidth = 3;
             ctx.stroke();
             
+            // Inner core
             ctx.beginPath();
-            ctx.arc(e.x, e.y, e.radius * 0.6, 0, Math.PI * 2);
-            ctx.fillStyle = `hsla(${e.hue + 30}, 100%, 70%, ${e.alpha * 0.3})`;
+            ctx.arc(e.x, e.y, e.radius * 0.4, 0, Math.PI * 2);
+            const coreGrad = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.radius * 0.4);
+            coreGrad.addColorStop(0, `hsla(${e.hue + 40}, 100%, 90%, ${e.alpha})`);
+            coreGrad.addColorStop(1, `hsla(${e.hue}, 100%, 50%, ${e.alpha * 0.3})`);
+            ctx.fillStyle = coreGrad;
             ctx.fill();
+            
+            // Bright center
+            ctx.fillStyle = `hsla(${e.hue + 60}, 100%, 100%, ${e.alpha})`;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, e.radius * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
         });
         
-        // Particles
+        // Advanced particle system with trails
         particles.forEach(p => {
-            ctx.globalAlpha = p.life / p.maxLife;
-            ctx.fillStyle = `hsl(${p.hue}, 100%, ${50 + (1 - p.life / p.maxLife) * 30}%)`;
+            const alpha = p.life / p.maxLife;
+            const size = p.size * (p.life / p.maxLife);
+            
+            // Particle trail
+            if (p.type === 'spark') {
+                ctx.fillStyle = `hsl(${p.hue}, 100%, ${50 + (1 - alpha) * 40}%)`;
+                ctx.globalAlpha = alpha * 0.4;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, size * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Main particle with glow
+            ctx.shadowColor = `hsl(${p.hue}, 100%, 60%)`;
+            ctx.shadowBlur = size * 2;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `hsl(${p.hue}, 100%, ${50 + (1 - alpha) * 30}%)`;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bright core
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, size * 0.4, 0, Math.PI * 2);
             ctx.fill();
         });
         ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
         
         // Other players
         for (let id in otherPlayers) {
@@ -5136,13 +5249,34 @@ function initMinesweeper() {
     const colors = ['', '#00f', '#080', '#f00', '#008', '#800', '#088', '#000', '#888'];
     
     function draw() {
-        ctx.fillStyle = '#1a1a2e';
+        const time = Date.now() * 0.001;
+        
+        // Advanced background with danger theme
+        const bgGrad = ctx.createRadialGradient(300, 325, 0, 300, 325, 500);
+        bgGrad.addColorStop(0, '#1a0010');
+        bgGrad.addColorStop(0.4, '#0a0005');
+        bgGrad.addColorStop(0.7, '#050002');
+        bgGrad.addColorStop(1, '#000000');
+        ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, 600, 650);
         
-        ctx.fillStyle = '#ff0066';
+        // Animated warning pulses
+        for (let i = 0; i < 3; i++) {
+            const pulse = ((time * 2 + i * 0.5) % 2);
+            const alpha = Math.max(0, 0.1 - pulse * 0.05);
+            ctx.strokeStyle = `rgba(255, 51, 102, ${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(10 + pulse * 20, 10 + pulse * 20, 580 - pulse * 40, 630 - pulse * 40);
+        }
+        
+        // Title with glow
+        ctx.shadowColor = '#ff3366';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#ff3366';
         ctx.font = '20px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText('MINESWEEPER', 300, 35);
+        ctx.fillText('MINE SCAN', 300, 35);
+        ctx.shadowBlur = 0;
         
         ctx.font = '14px "Press Start 2P"';
         ctx.fillStyle = '#fff';
@@ -5161,29 +5295,54 @@ function initMinesweeper() {
                 const py = OFFSET_Y + y * CELL_SIZE;
                 
                 if (!revealed[y] || !revealed[y][x]) {
-                    ctx.fillStyle = '#3a3a5a';
+                    // Enhanced unrevealed cell with gradient
+                    const cellGrad = ctx.createLinearGradient(px, py, px + CELL_SIZE, py + CELL_SIZE);
+                    cellGrad.addColorStop(0, '#4a3a5a');
+                    cellGrad.addColorStop(0.5, '#3a3a5a');
+                    cellGrad.addColorStop(1, '#2a2a4a');
+                    ctx.fillStyle = cellGrad;
                     ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
                     
+                    // Border highlight
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    
                     if (flagged[y] && flagged[y][x]) {
+                        ctx.shadowColor = '#ff0';
+                        ctx.shadowBlur = 10;
                         ctx.fillStyle = '#ff0';
                         ctx.font = '16px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText('🚩', px + CELL_SIZE/2, py + CELL_SIZE/2 + 6);
+                        ctx.shadowBlur = 0;
                     }
                 } else {
-                    ctx.fillStyle = '#2a2a4a';
+                    // Enhanced revealed cell
+                    const revealGrad = ctx.createLinearGradient(px, py, px + CELL_SIZE, py + CELL_SIZE);
+                    revealGrad.addColorStop(0, '#2a2a4a');
+                    revealGrad.addColorStop(1, '#1a1a3a');
+                    ctx.fillStyle = revealGrad;
                     ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
                     
                     if (grid[y][x] === -1) {
+                        // Enhanced mine with explosion effect
+                        ctx.shadowColor = '#ff0000';
+                        ctx.shadowBlur = 15;
                         ctx.fillStyle = '#f00';
                         ctx.font = '16px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText('💣', px + CELL_SIZE/2, py + CELL_SIZE/2 + 6);
+                        ctx.shadowBlur = 0;
                     } else if (grid[y][x] > 0) {
+                        // Enhanced numbers with glow
+                        ctx.shadowColor = colors[grid[y][x]];
+                        ctx.shadowBlur = 8;
                         ctx.fillStyle = colors[grid[y][x]];
                         ctx.font = 'bold 18px "Press Start 2P"';
                         ctx.textAlign = 'center';
                         ctx.fillText(grid[y][x], px + CELL_SIZE/2, py + CELL_SIZE/2 + 7);
+                        ctx.shadowBlur = 0;
                     }
                 }
             }
@@ -7358,11 +7517,38 @@ function initRunner() {
     }
     
     function draw() {
+        const time = Date.now() * 0.001;
+        
+        // Advanced synthwave background
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, '#0a0020');
-        gradient.addColorStop(1, '#1a0a3a');
+        const hueShift = (time * 20) % 360;
+        gradient.addColorStop(0, `hsl(${(hueShift + 280) % 360}, 80%, 10%)`);
+        gradient.addColorStop(0.3, `hsl(${(hueShift + 300) % 360}, 70%, 15%)`);
+        gradient.addColorStop(0.6, `hsl(${(hueShift + 320) % 360}, 60%, 12%)`);
+        gradient.addColorStop(1, `hsl(${(hueShift + 340) % 360}, 50%, 8%)`);
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, 800, 400);
+        
+        // Animated grid lines (synthwave effect)
+        ctx.strokeStyle = `rgba(255, 0, 255, 0.2)`;
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 3;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 20; i++) {
+            const y = ((distance * 0.5 + i * 40) % 400);
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(800, y);
+            ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+        
+        // Neon sun
+        const sunGrad = ctx.createRadialGradient(400, 50, 0, 400, 50, 150);
+        sunGrad.addColorStop(0, `rgba(255, 0, 255, 0.3)`);
+        sunGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = sunGrad;
+        ctx.fillRect(250, -50, 300, 200);
         
         ctx.fillStyle = '#fff';
         for (let i = 0; i < 50; i++) {
@@ -7373,17 +7559,29 @@ function initRunner() {
         }
         ctx.globalAlpha = 1;
         
-        ctx.fillStyle = '#0f0';
-        ctx.fillRect(0, groundY, 800, 3);
+        // Enhanced neon ground with glow
+        const groundGrad = ctx.createLinearGradient(0, groundY, 0, 400);
+        groundGrad.addColorStop(0, '#00ff00');
+        groundGrad.addColorStop(0.3, '#00aa00');
+        groundGrad.addColorStop(1, '#005500');
+        ctx.fillStyle = groundGrad;
+        ctx.shadowColor = '#00ff00';
+        ctx.shadowBlur = 15;
+        ctx.fillRect(0, groundY, 800, 80);
+        ctx.shadowBlur = 0;
         
-        ctx.strokeStyle = '#0a3';
-        ctx.lineWidth = 1;
+        // Enhanced perspective lines with glow
+        ctx.strokeStyle = '#00ff88';
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = 5;
+        ctx.lineWidth = 2;
         for (let x = -distance % 50; x < 800; x += 50) {
             ctx.beginPath();
             ctx.moveTo(x, groundY + 3);
             ctx.lineTo(x + 100, 400);
             ctx.stroke();
         }
+        ctx.shadowBlur = 0;
         
         particles.forEach(p => {
             ctx.globalAlpha = p.life / 20;
@@ -7394,37 +7592,67 @@ function initRunner() {
         });
         ctx.globalAlpha = 1;
         
+        // Enhanced coins with rotation and glow
         coins.forEach(c => {
-            ctx.fillStyle = '#ff0';
+            const coinGrad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 12);
+            coinGrad.addColorStop(0, '#ffff00');
+            coinGrad.addColorStop(0.5, '#ffaa00');
+            coinGrad.addColorStop(1, '#ff6600');
+            ctx.fillStyle = coinGrad;
             ctx.shadowColor = '#ff0';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 15;
             ctx.beginPath();
             ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
+            ctx.fill();
+            // Inner highlight
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(c.x - 3, c.y - 3, 4, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
         });
         
-        ctx.fillStyle = '#f00';
-        ctx.shadowColor = '#f00';
-        ctx.shadowBlur = 10;
+        // Enhanced obstacles with gradient
         obstacles.forEach(o => {
+            const obsGrad = ctx.createLinearGradient(o.x - 15, o.y, o.x + 15, o.y);
+            obsGrad.addColorStop(0, '#ff0000');
+            obsGrad.addColorStop(0.5, '#cc0000');
+            obsGrad.addColorStop(1, '#990000');
+            ctx.fillStyle = obsGrad;
+            ctx.shadowColor = '#f00';
+            ctx.shadowBlur = 12;
             if (o.type === 'high') {
                 ctx.fillRect(o.x - 15, o.y, 30, o.height);
             } else {
                 ctx.fillRect(o.x - 15, o.y - o.height, 30, o.height);
             }
+            // Border
+            ctx.strokeStyle = '#ff6666';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(o.x - 15, o.type === 'high' ? o.y : o.y - o.height, 30, o.height);
         });
         ctx.shadowBlur = 0;
         
+        // Enhanced player with gradient and glow
         const playerHeight = player.ducking ? 25 : 50;
-        ctx.fillStyle = '#0ff';
+        const playerGrad = ctx.createLinearGradient(player.x - 15, player.y - playerHeight, player.x + 15, player.y);
+        playerGrad.addColorStop(0, '#00ffff');
+        playerGrad.addColorStop(0.5, '#00aaff');
+        playerGrad.addColorStop(1, '#0088ff');
+        ctx.fillStyle = playerGrad;
         ctx.shadowColor = '#0ff';
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
         ctx.fillRect(player.x - 15, player.y - playerHeight, 30, playerHeight);
+        
+        // Player highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillRect(player.x - 10, player.y - playerHeight + 5, 20, 10);
         ctx.shadowBlur = 0;
         
+        // Eyes
         ctx.fillStyle = '#fff';
         ctx.fillRect(player.x + 5, player.y - playerHeight + 10, 8, 8);
+        ctx.fillRect(player.x - 13, player.y - playerHeight + 10, 8, 8);
         
         ctx.fillStyle = '#fff';
         ctx.font = '16px "Press Start 2P"';
