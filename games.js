@@ -832,9 +832,12 @@ function initPong() {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'pong-join-input';
-            input.placeholder = 'CODE';
+            input.placeholder = 'e.g. AB3XY9';
             input.maxLength = 6;
             input.autocomplete = 'off';
+            input.setAttribute('inputmode', 'text');
+            input.setAttribute('autocapitalize', 'characters');
+            input.setAttribute('spellcheck', 'false');
             const goBtn = document.createElement('button');
             goBtn.type = 'button';
             goBtn.className = 'pong-online-btn';
