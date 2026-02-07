@@ -1184,11 +1184,13 @@ function initPong() {
 }
 
 // === TRON LIGHT CYCLES ===
-const TRON_COLS = 70;
-const TRON_ROWS = 50;
+const TRON_COLS = 90;
+const TRON_ROWS = 60;
 const TRON_CELL = 10;
 const TRON_W = TRON_COLS * TRON_CELL;
 const TRON_H = TRON_ROWS * TRON_CELL;
+const TRON_TRAIL_PAD = 3;
+const TRON_BIKE_PAD = 1;
 const TRON_MOVE_MS = 120;
 const TRON_DX = [0, 1, 0, -1];
 const TRON_DY = [-1, 0, 1, 0];
@@ -1313,26 +1315,32 @@ function initTron() {
         function drawTronGrid(grid, c1, c2, trail1, trail2) {
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, TRON_W, TRON_H);
-            const pad = 1;
+            const trailSize = TRON_CELL - TRON_TRAIL_PAD * 2;
+            const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
             for (let r = 0; r < TRON_ROWS; r++) {
                 for (let c = 0; c < TRON_COLS; c++) {
                     const v = grid[r][c];
-                    if (v === 1) { ctx.fillStyle = '#00ffff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
-                    else if (v === 2) { ctx.fillStyle = '#ff00ff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
+                    if (v === 1) {
+                        ctx.fillStyle = '#00ffff';
+                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
+                    } else if (v === 2) {
+                        ctx.fillStyle = '#ff00ff';
+                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
+                    }
                 }
             }
             if (c1.alive) {
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = 8;
-                ctx.fillRect(c1.x*TRON_CELL+pad, c1.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.fillRect(c1.x*TRON_CELL+TRON_BIKE_PAD, c1.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
             if (c2.alive) {
                 ctx.fillStyle = '#ff00ff';
                 ctx.shadowColor = '#ff00ff';
                 ctx.shadowBlur = 8;
-                ctx.fillRect(c2.x*TRON_CELL+pad, c2.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.fillRect(c2.x*TRON_CELL+TRON_BIKE_PAD, c2.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
         }
@@ -1521,26 +1529,32 @@ function initTron() {
             }
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, TRON_W, TRON_H);
-            const pad = 1;
+            const trailSize = TRON_CELL - TRON_TRAIL_PAD * 2;
+            const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
             for (let r = 0; r < TRON_ROWS; r++) {
                 for (let c = 0; c < TRON_COLS; c++) {
                     const v = grid[r][c];
-                    if (v === 1) { ctx.fillStyle = '#00ffff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
-                    else if (v === 2) { ctx.fillStyle = '#ff00ff'; ctx.fillRect(c*TRON_CELL+pad, r*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2); }
+                    if (v === 1) {
+                        ctx.fillStyle = '#00ffff';
+                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
+                    } else if (v === 2) {
+                        ctx.fillStyle = '#ff00ff';
+                        ctx.fillRect(c*TRON_CELL+TRON_TRAIL_PAD, r*TRON_CELL+TRON_TRAIL_PAD, trailSize, trailSize);
+                    }
                 }
             }
             if (p1.alive) {
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = 6;
-                ctx.fillRect(p1.x*TRON_CELL+pad, p1.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.fillRect(p1.x*TRON_CELL+TRON_BIKE_PAD, p1.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
             if (p2.alive) {
                 ctx.fillStyle = '#ff00ff';
                 ctx.shadowColor = '#ff00ff';
                 ctx.shadowBlur = 6;
-                ctx.fillRect(p2.x*TRON_CELL+pad, p2.y*TRON_CELL+pad, TRON_CELL-pad*2, TRON_CELL-pad*2);
+                ctx.fillRect(p2.x*TRON_CELL+TRON_BIKE_PAD, p2.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
         }
