@@ -230,6 +230,11 @@ function startGame(gameName) {
         currentGameTitle.textContent = GAME_DISPLAY_NAMES[gameName] || gameName.toUpperCase();
     }
     
+    const playArea = gameContainer.querySelector('.game-play-area');
+    if (playArea && canvas && touchControls) {
+        if (!playArea.contains(canvas)) playArea.insertBefore(canvas, playArea.firstChild);
+        if (!playArea.contains(touchControls)) playArea.appendChild(touchControls);
+    }
     switch(gameName) {
         case 'snake':
             initSnake();
@@ -481,7 +486,7 @@ function initSnake() {
         gameLoop = requestAnimationFrame(update);
         
         if (currentTime - lastTime < gameSpeed) return;
-        lastTime = currentTime;
+        lastTime += gameSpeed;
         
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -1041,13 +1046,15 @@ function initPong() {
         }
         
         let lastTime = performance.now();
+        let ballAccum = 0;
+        const BALL_DT = 1/60;
+        const MAX_BALL_STEPS = 5;
         
         function update(now) {
             gameLoop = requestAnimationFrame(update);
             let dt = (now - lastTime) / 1000;
             lastTime = now;
-            if (dt > 0.1) dt = 1/60;
-            const scale = Math.min(dt * 60, 3);
+            if (dt > 0.1) dt = BALL_DT;
             
             if (!pongGameStarted) {
                 ctx.fillStyle = '#000';
@@ -1087,38 +1094,46 @@ function initPong() {
             const move = Math.max(-aiSpeedMax * dt, Math.min(aiSpeedMax * dt, diff * aiSmooth * dt));
             aiY = Math.max(0, Math.min(PONG_H - PADDLE_H, aiY + move));
             
-            ballX += ballSpeedX * scale;
-            ballY += ballSpeedY * scale;
-            
-            if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
-                ballSpeedY = -ballSpeedY;
-                playSound(300, 0.05);
+            ballAccum += dt;
+            let steps = 0;
+            while (ballAccum >= BALL_DT && steps < MAX_BALL_STEPS) {
+                ballAccum -= BALL_DT;
+                steps++;
+                ballX += ballSpeedX;
+                ballY += ballSpeedY;
+                
+                if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
+                    ballSpeedY = -ballSpeedY;
+                    playSound(300, 0.05);
+                }
+                
+                if (ballX <= PADDLE_W + 20 && ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_H && ballSpeedX < 0) {
+                    ballSpeedX = -ballSpeedX;
+                    ballSpeedY = (ballY - playerY) / PADDLE_H * (600 / 60) - 300 / 60;
+                    playSound(500, 0.1);
+                }
+                if (ballX >= PONG_W - PADDLE_W - 20 - BALL_SIZE && ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_H && ballSpeedX > 0) {
+                    ballSpeedX = -ballSpeedX;
+                    ballSpeedY = (ballY - aiY) / PADDLE_H * (600 / 60) - 300 / 60;
+                    playSound(500, 0.1);
+                }
+                
+                if (ballX < 0) {
+                    aiScore++;
+                    resetBall();
+                    ballAccum = 0;
+                    playSound(200, 0.3);
+                }
+                if (ballX > PONG_W) {
+                    playerScore++;
+                    updateScore(playerScore);
+                    resetBall();
+                    ballAccum = 0;
+                    playSound(800, 0.2);
+                }
             }
             
-            if (ballX <= PADDLE_W + 20 && ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_H && ballSpeedX < 0) {
-                ballSpeedX = -ballSpeedX * 1.05;
-                ballSpeedY = (ballY - playerY) / PADDLE_H * (600 / 60) - 300 / 60;
-                playSound(500, 0.1);
-            }
-            if (ballX >= PONG_W - PADDLE_W - 20 - BALL_SIZE && ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_H && ballSpeedX > 0) {
-                ballSpeedX = -ballSpeedX * 1.05;
-                ballSpeedY = (ballY - aiY) / PADDLE_H * (600 / 60) - 300 / 60;
-                playSound(500, 0.1);
-            }
-            
-            if (ballX < 0) {
-                aiScore++;
-                resetBall();
-                playSound(200, 0.3);
-            }
-            if (ballX > PONG_W) {
-                playerScore++;
-                updateScore(playerScore);
-                resetBall();
-                playSound(800, 0.2);
-            }
-            
-            ballSpeedX = Math.max(-15, Math.min(15, ballSpeedX));
+            ballSpeedX = Math.max(-12, Math.min(12, ballSpeedX));
             ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
             
             drawPongField(ctx, PONG_W, PONG_H, PADDLE_W, PADDLE_H, BALL_SIZE);
@@ -1203,13 +1218,15 @@ function initPong() {
         let lastTime = performance.now();
         const SEND_INTERVAL = 1/25;
         let sendAcc = 0;
+        let ballAccum = 0;
+        const BALL_DT = 1/60;
+        const MAX_BALL_STEPS = 5;
         
         function update(now) {
             gameLoop = requestAnimationFrame(update);
             let dt = (now - lastTime) / 1000;
             lastTime = now;
-            if (dt > 0.1) dt = 1/60;
-            const scale = Math.min(dt * 60, 3);
+            if (dt > 0.1) dt = BALL_DT;
             
             if (gameOver) {
                 drawPongField(ctx, PONG_W, PONG_H, PADDLE_W, PADDLE_H, BALL_SIZE);
@@ -1219,9 +1236,6 @@ function initPong() {
                 ctx.fillText('Opponent disconnected', PONG_W / 2, PONG_H / 2);
                 return;
             }
-            
-            const myPaddle = isHost ? paddle1Y : paddle2Y;
-            const otherPaddle = isHost ? paddle2Y : paddle1Y;
             
             if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
                 if (isHost) paddle1Y = Math.max(0, paddle1Y - PADDLE_SPEED * dt);
@@ -1234,37 +1248,45 @@ function initPong() {
             
             if (isHost) {
                 paddle2Y = remotePaddle;
-                ballX += ballSpeedX * scale;
-                ballY += ballSpeedY * scale;
-                
-                if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
-                    ballSpeedY = -ballSpeedY;
-                    playSound(300, 0.05);
+                ballAccum += dt;
+                let steps = 0;
+                while (ballAccum >= BALL_DT && steps < MAX_BALL_STEPS) {
+                    ballAccum -= BALL_DT;
+                    steps++;
+                    ballX += ballSpeedX;
+                    ballY += ballSpeedY;
+                    
+                    if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
+                        ballSpeedY = -ballSpeedY;
+                        playSound(300, 0.05);
+                    }
+                    const px = 20;
+                    const ox = PONG_W - PADDLE_W - 20 - BALL_SIZE;
+                    if (ballX <= px + PADDLE_W && ballY + BALL_SIZE >= paddle1Y && ballY <= paddle1Y + PADDLE_H && ballSpeedX < 0) {
+                        ballSpeedX = -ballSpeedX;
+                        ballSpeedY = (ballY - paddle1Y) / PADDLE_H * (600/60) - 300/60;
+                        playSound(500, 0.1);
+                    }
+                    if (ballX >= ox && ballY + BALL_SIZE >= paddle2Y && ballY <= paddle2Y + PADDLE_H && ballSpeedX > 0) {
+                        ballSpeedX = -ballSpeedX;
+                        ballSpeedY = (ballY - paddle2Y) / PADDLE_H * (600/60) - 300/60;
+                        playSound(500, 0.1);
+                    }
+                    if (ballX < 0) {
+                        score2++;
+                        resetBall();
+                        ballAccum = 0;
+                        playSound(200, 0.3);
+                    }
+                    if (ballX > PONG_W) {
+                        score1++;
+                        updateScore(score1);
+                        resetBall();
+                        ballAccum = 0;
+                        playSound(800, 0.2);
+                    }
                 }
-                const px = 20;
-                const ox = PONG_W - PADDLE_W - 20 - BALL_SIZE;
-                if (ballX <= px + PADDLE_W && ballY + BALL_SIZE >= paddle1Y && ballY <= paddle1Y + PADDLE_H && ballSpeedX < 0) {
-                    ballSpeedX = -ballSpeedX * 1.05;
-                    ballSpeedY = (ballY - paddle1Y) / PADDLE_H * (600/60) - 300/60;
-                    playSound(500, 0.1);
-                }
-                if (ballX >= ox && ballY + BALL_SIZE >= paddle2Y && ballY <= paddle2Y + PADDLE_H && ballSpeedX > 0) {
-                    ballSpeedX = -ballSpeedX * 1.05;
-                    ballSpeedY = (ballY - paddle2Y) / PADDLE_H * (600/60) - 300/60;
-                    playSound(500, 0.1);
-                }
-                if (ballX < 0) {
-                    score2++;
-                    resetBall();
-                    playSound(200, 0.3);
-                }
-                if (ballX > PONG_W) {
-                    score1++;
-                    updateScore(score1);
-                    resetBall();
-                    playSound(800, 0.2);
-                }
-                ballSpeedX = Math.max(-15, Math.min(15, ballSpeedX));
+                ballSpeedX = Math.max(-12, Math.min(12, ballSpeedX));
                 ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
                 
                 sendAcc += dt;
@@ -1343,6 +1365,7 @@ const TRON_DY = [-1, 0, 1, 0];
 function initTron() {
     currentGameTitle.textContent = 'TRON';
     gameControls.innerHTML = 'Arrow keys or touch to turn. Hold Shift to speed up. Don\'t hit walls or trails.';
+    if (!canvas || !ctx) return;
     canvas.width = TRON_W;
     canvas.height = TRON_H;
     const keys = {};
@@ -1358,15 +1381,17 @@ function initTron() {
     handleKeyUp = (e) => { keys[e.key] = false; };
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    const touchKeys = {};
     addTouchDpad({
         onUp: (p) => { if (p) nextDir = 0; },
         onDown: (p) => { if (p) nextDir = 2; },
         onLeft: (p) => { if (p) nextDir = 3; },
         onRight: (p) => { if (p) nextDir = 1; }
     });
+    gameContainer.querySelectorAll('.pong-mode-overlay').forEach(el => el.remove());
     const modeOverlay = document.createElement('div');
     modeOverlay.className = 'pong-mode-overlay';
+    modeOverlay.setAttribute('role', 'dialog');
+    modeOverlay.setAttribute('aria-label', 'Choose Tron mode');
     modeOverlay.innerHTML = '<h3>Choose mode</h3><div class="pong-mode-btns"></div>';
     const modeBtns = modeOverlay.querySelector('.pong-mode-btns');
     const btnAI = document.createElement('button');
@@ -1382,6 +1407,7 @@ function initTron() {
     modeBtns.appendChild(btnAI);
     modeBtns.appendChild(btnOnline);
     gameContainer.appendChild(modeOverlay);
+    cleanupFunctions.push(() => { modeOverlay.remove(); });
 
     function startTronAI() {
         let grid = Array(TRON_ROWS).fill(0).map(() => Array(TRON_COLS).fill(0));
@@ -1820,74 +1846,90 @@ function initBreakout() {
     
     let lastTime = performance.now();
     const PADDLE_SPEED = 480;
-    const BALL_SPEED_SCALE = 60;
+    const BALL_DT = 1/60;
+    const MAX_BALL_STEPS = 5;
+    let ballAccum = 0;
     
     function update(now) {
         gameLoop = requestAnimationFrame(update);
         
         let dt = (now - lastTime) / 1000;
         lastTime = now;
-        if (dt > 0.1) dt = 1/60;
-        const scale = Math.min(dt * 60, 3);
+        if (dt > 0.1) dt = BALL_DT;
         
         if (keys['ArrowLeft']) paddleX = Math.max(0, paddleX - PADDLE_SPEED * dt);
         if (keys['ArrowRight']) paddleX = Math.min(canvas.width - paddleWidth, paddleX + PADDLE_SPEED * dt);
         
         if (!gameOver && !win) {
-            ballX += ballSpeedX * scale;
-            ballY += ballSpeedY * scale;
-            
-            // Wall collisions
-            if (ballX <= 0 || ballX >= canvas.width - ballSize) {
-                ballSpeedX = -ballSpeedX;
-                playSound(300, 0.05);
-            }
-            if (ballY <= 0) {
-                ballSpeedY = -ballSpeedY;
-                playSound(300, 0.05);
-            }
-            
-            // Paddle collision
-            if (ballY >= canvas.height - paddleHeight - 20 - ballSize &&
-                ballX >= paddleX && ballX <= paddleX + paddleWidth) {
-                ballSpeedY = -Math.abs(ballSpeedY);
-                const hitPos = (ballX - paddleX) / paddleWidth;
-                ballSpeedX = (hitPos - 0.5) * 10;
-                playSound(500, 0.1);
-            }
-            
-            // Bottom - game over
-            if (ballY > canvas.height) {
-                gameOver = true;
-                playSound(100, 0.5);
-            }
-            
-            // Brick collisions
-            let bricksLeft = 0;
-            for (let r = 0; r < brickRows; r++) {
-                for (let c = 0; c < brickCols; c++) {
-                    const brick = bricks[r][c];
-                    if (brick.status === 1) {
-                        bricksLeft++;
-                        const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
-                        const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-                        brick.x = brickX;
-                        brick.y = brickY;
-                        
-                        if (ballX >= brickX && ballX <= brickX + brickWidth &&
-                            ballY >= brickY && ballY <= brickY + brickHeight) {
-                            ballSpeedY = -ballSpeedY;
-                            brick.status = 0;
-                            updateScore(score + 10);
-                            playSound(600 + r * 100, 0.1);
+            ballAccum += dt;
+            let steps = 0;
+            while (ballAccum >= BALL_DT && steps < MAX_BALL_STEPS) {
+                ballAccum -= BALL_DT;
+                steps++;
+                ballX += ballSpeedX;
+                ballY += ballSpeedY;
+                
+                // Wall collisions
+                if (ballX <= 0 || ballX >= canvas.width - ballSize) {
+                    ballSpeedX = -ballSpeedX;
+                    ballX = Math.max(ballSize, Math.min(canvas.width - ballSize * 2, ballX));
+                    playSound(300, 0.05);
+                }
+                if (ballY <= 0) {
+                    ballSpeedY = -ballSpeedY;
+                    ballY = ballSize + 1;
+                    playSound(300, 0.05);
+                }
+                
+                // Paddle collision
+                if (ballY >= canvas.height - paddleHeight - 20 - ballSize &&
+                    ballX >= paddleX && ballX <= paddleX + paddleWidth) {
+                    ballSpeedY = -Math.abs(ballSpeedY);
+                    const hitPos = (ballX - paddleX) / paddleWidth;
+                    ballSpeedX = (hitPos - 0.5) * 10;
+                    ballY = canvas.height - paddleHeight - 20 - ballSize - 1;
+                    playSound(500, 0.1);
+                }
+                
+                // Bottom - game over
+                if (ballY > canvas.height) {
+                    gameOver = true;
+                    playSound(100, 0.5);
+                }
+                
+                // Brick collision (first hit only per step, then nudge ball out so it doesn't re-hit)
+                let brickHit = false;
+                for (let r = 0; r < brickRows && !brickHit; r++) {
+                    for (let c = 0; c < brickCols && !brickHit; c++) {
+                        const brick = bricks[r][c];
+                        if (brick.status === 1) {
+                            const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                            const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                            brick.x = brickX;
+                            brick.y = brickY;
+                            if (ballX >= brickX && ballX <= brickX + brickWidth &&
+                                ballY >= brickY && ballY <= brickY + brickHeight) {
+                                ballSpeedY = -ballSpeedY;
+                                brick.status = 0;
+                                brickHit = true;
+                                if (ballSpeedY > 0) ballY = brickY + brickHeight + ballSize + 1;
+                                else ballY = brickY - ballSize - 1;
+                                updateScore(score + 10);
+                                playSound(600 + r * 100, 0.1);
+                            }
                         }
                     }
                 }
             }
-            
-            if (bricksLeft === 0) {
-                win = true;
-                playSound(1000, 0.5);
+            if (!gameOver && !win) {
+                let bricksLeft = 0;
+                for (let r = 0; r < brickRows; r++)
+                    for (let c = 0; c < brickCols; c++)
+                        if (bricks[r][c].status === 1) bricksLeft++;
+                if (bricksLeft === 0) {
+                    win = true;
+                    playSound(1000, 0.5);
+                }
             }
         }
         
@@ -2367,10 +2409,8 @@ function initFlappy() {
     let gameOver = false;
     let started = false;
     
-    // Fixed timing - use game-relative time
-    let gameStartTime = 0;
-    let lastPipeSpawnTime = 0;
-    const pipeSpawnInterval = 2000; // spawn pipe every 2 seconds
+    let pipeSpawnAccum = 0;
+    const pipeSpawnIntervalSec = 2;
     
     function spawnPipe() {
         const minHeight = 80;
@@ -2388,11 +2428,7 @@ function initFlappy() {
     
     function flap() {
         if (gameOver) return;
-        if (!started) {
-            started = true;
-            gameStartTime = performance.now();
-            lastPipeSpawnTime = gameStartTime;
-        }
+        if (!started) started = true;
         birdVelocity = flapStrength;
         playSound(400, 0.1);
     }
@@ -2435,14 +2471,18 @@ function initFlappy() {
     bgGradient.addColorStop(0, '#001133');
     bgGradient.addColorStop(1, '#003366');
     
+    const STEP_DT = 1/60;
+    const MAX_STEPS = 5;
+    const PIPE_SPEED_PER_STEP = 180 * STEP_DT;
+    let accum = 0;
+    let gameOverSoundPlayed = false;
+    
     function update(now) {
         gameLoop = requestAnimationFrame(update);
         
-        const currentTime = now;
-        let dt = (currentTime - lastTime) / 1000;
-        lastTime = currentTime;
-        if (dt > 0.1) dt = 1/60;
-        const scale = Math.min(dt * 60, 3);
+        let dt = (now - lastTime) / 1000;
+        lastTime = now;
+        if (dt > 0.1) dt = STEP_DT;
         
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2452,49 +2492,56 @@ function initFlappy() {
         }
         
         if (started && !gameOver) {
-            // Bird physics (delta-time for consistent speed on all devices)
-            birdVelocity += gravity * scale;
-            birdY += birdVelocity * scale;
-            
-            // Spawn pipes using proper time tracking
-            if (currentTime - lastPipeSpawnTime > pipeSpawnInterval) {
-                spawnPipe();
-                lastPipeSpawnTime = currentTime;
-            }
-            
-            // Move pipes (delta-time: ~180 px/s)
-            const pipeSpeed = 180 * dt;
-            pipes = pipes.filter(pipe => {
-                pipe.x -= pipeSpeed;
-                return pipe.x > -pipeWidth;
-            });
-            
-            // Collision detection
-            const birdX = 80;
-            
-            // Ground/ceiling
-            if (birdY < 0 || birdY > canvas.height - birdSize) {
-                gameOver = true;
-                playSound(100, 0.5);
-            }
-            
-            // Pipes - only check if not already game over
-            if (!gameOver) {
-                for (let pipe of pipes) {
-                    // Check collision
-                    if (birdX + birdSize > pipe.x && birdX < pipe.x + pipeWidth) {
-                        if (birdY < pipe.topHeight || birdY + birdSize > pipe.topHeight + pipeGap) {
-                            gameOver = true;
-                            playSound(100, 0.5);
-                            break;
+            accum += dt;
+            let steps = 0;
+            while (accum >= STEP_DT && steps < MAX_STEPS) {
+                accum -= STEP_DT;
+                steps++;
+                birdVelocity += gravity;
+                birdY += birdVelocity;
+                
+                // Spawn pipes every N seconds (fixed step)
+                pipeSpawnAccum += STEP_DT;
+                if (pipeSpawnAccum >= pipeSpawnIntervalSec) {
+                    pipeSpawnAccum = 0;
+                    spawnPipe();
+                }
+                
+                // Move pipes (fixed speed per step)
+                pipes = pipes.filter(pipe => {
+                    pipe.x -= PIPE_SPEED_PER_STEP;
+                    return pipe.x > -pipeWidth;
+                });
+                
+                const birdX = 80;
+                
+                // Ground/ceiling - clamp and game over
+                if (birdY < 0) {
+                    birdY = 0;
+                    gameOver = true;
+                    if (!gameOverSoundPlayed) { gameOverSoundPlayed = true; playSound(100, 0.5); }
+                }
+                if (birdY > canvas.height - birdSize) {
+                    birdY = canvas.height - birdSize;
+                    gameOver = true;
+                    if (!gameOverSoundPlayed) { gameOverSoundPlayed = true; playSound(100, 0.5); }
+                }
+                
+                // Pipes - one collision per step, then stop so we don't re-trigger
+                if (!gameOver) {
+                    for (let pipe of pipes) {
+                        if (birdX + birdSize > pipe.x && birdX < pipe.x + pipeWidth) {
+                            if (birdY < pipe.topHeight || birdY + birdSize > pipe.topHeight + pipeGap) {
+                                gameOver = true;
+                                if (!gameOverSoundPlayed) { gameOverSoundPlayed = true; playSound(100, 0.5); }
+                                break;
+                            }
                         }
-                    }
-                    
-                    // Score
-                    if (!pipe.passed && pipe.x + pipeWidth < birdX) {
-                        pipe.passed = true;
-                        updateScore(score + 1);
-                        playSound(600, 0.1);
+                        if (!pipe.passed && pipe.x + pipeWidth < birdX) {
+                            pipe.passed = true;
+                            updateScore(score + 1);
+                            playSound(600, 0.1);
+                        }
                     }
                 }
             }

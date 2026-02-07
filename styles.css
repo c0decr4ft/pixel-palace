@@ -649,6 +649,8 @@ body {
     padding: 0.5rem;
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
+    /* So absolute children (e.g. mode overlay) position relative to this */
+    isolation: isolate;
 }
 
 .game-container.active {
@@ -773,14 +775,15 @@ body {
     backface-visibility: hidden;
 }
 
+/* Hide on desktop: only show on-screen arrows on touch devices */
 .touch-controls.has-buttons {
-    display: flex;
+    display: none;
     flex-wrap: wrap;
     pointer-events: auto;
     touch-action: none;
 }
 
-@media (pointer: coarse), (max-width: 900px) {
+@media (pointer: coarse) {
     .game-container.active .touch-controls.has-buttons {
         display: flex;
     }
@@ -904,8 +907,10 @@ body {
     bottom: auto;
 }
 
-.pong-game-area .touch-controls.has-buttons {
-    display: flex;
+@media (pointer: coarse) {
+    .pong-game-area .touch-controls.has-buttons {
+        display: flex;
+    }
 }
 
 /* Pong: mode select (AI vs Online) */
