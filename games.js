@@ -1192,13 +1192,14 @@ const TRON_H = TRON_ROWS * TRON_CELL;
 const TRON_TRAIL_PAD = 3;
 const TRON_BIKE_PAD = 1;
 const TRON_MOVE_MS = 80;
+const TRON_MOVE_MS_BOOST = 55;  // when holding Shift
 const TRON_LINE_WIDTH = 2;
 const TRON_DX = [0, 1, 0, -1];
 const TRON_DY = [-1, 0, 1, 0];
 
 function initTron() {
     currentGameTitle.textContent = 'TRON';
-    gameControls.innerHTML = 'Arrow keys or touch to turn. Don\'t hit walls or trails.';
+    gameControls.innerHTML = 'Arrow keys or touch to turn. Hold Shift to speed up. Don\'t hit walls or trails.';
     canvas.width = TRON_W;
     canvas.height = TRON_H;
     const keys = {};
@@ -1261,14 +1262,27 @@ function initTron() {
         function valid(c) {
             return c.x >= 0 && c.x < TRON_COLS && c.y >= 0 && c.y < TRON_ROWS && grid[c.y][c.x] === 0;
         }
+        function stepsUntilCrash(cx, cy, dir) {
+            let x = cx, y = cy, steps = 0;
+            while (true) {
+                const n = nextCell(x, y, dir);
+                if (!valid(n)) return steps;
+                x = n.x; y = n.y;
+                steps++;
+                if (steps > TRON_COLS + TRON_ROWS) return steps;
+            }
+        }
         function aiChooseDir(cycle) {
             const perp = [(cycle.dir + 1) % 4, (cycle.dir + 3) % 4];
             const options = [cycle.dir, perp[0], perp[1]];
-            for (const d of options) {
-                const n = nextCell(cycle.x, cycle.y, d);
-                if (valid(n)) return d;
-            }
-            return cycle.dir;
+            const valid = options.filter(d => valid(nextCell(cycle.x, cycle.y, d)));
+            if (valid.length === 0) return cycle.dir;
+            const withSpace = valid.map(d => ({ d, space: stepsUntilCrash(cycle.x, cycle.y, d) }));
+            withSpace.sort((a, b) => b.space - a.space);
+            const best = withSpace[0].space;
+            const good = withSpace.filter(w => w.space >= Math.max(1, best - 8));
+            const pick = good[Math.floor(Math.random() * good.length)];
+            return pick.d;
         }
 
         function update(now) {
@@ -1286,8 +1300,9 @@ function initTron() {
                 return;
             }
             if (nextDir !== null && canTurn(playerDir, nextDir)) playerDir = nextDir;
-            if (now - lastMove >= TRON_MOVE_MS) {
-                lastMove += TRON_MOVE_MS;
+            const moveMs = keys['Shift'] ? TRON_MOVE_MS_BOOST : TRON_MOVE_MS;
+            if (now - lastMove >= moveMs) {
+                lastMove += moveMs;
                 p1.dir = playerDir;
                 p2.dir = aiChooseDir(p2);
                 const moveOrder = p1.y < p2.y ? [p1, p2] : [p2, p1];
@@ -1310,7 +1325,7 @@ function initTron() {
                     playSound(winner === 1 ? 800 : 200, 0.2);
                 }
             }
-            const interp = Math.min(1, (now - lastMove) / TRON_MOVE_MS);
+            const interp = Math.min(1, (now - lastMove) / moveMs);
             drawTronGrid(grid, p1, p2, 1, 2, interp);
         }
         function drawTronGrid(grid, c1, c2, trail1, trail2, interp) {
