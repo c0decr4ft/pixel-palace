@@ -629,6 +629,8 @@ body {
 
 .game-container.active {
     display: flex;
+    touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
 }
 
 .game-header {
@@ -681,6 +683,8 @@ body {
         inset 0 0 50px rgba(0, 255, 255, 0.1);
     max-width: 100%;
     max-height: 70vh;
+    touch-action: manipulation;
+    display: block;
 }
 
 .game-controls {
@@ -689,6 +693,93 @@ body {
     font-size: 0.6rem;
     color: #666;
     text-align: center;
+}
+
+/* Touch controls: show on touch devices and small screens */
+.touch-controls {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.touch-controls.has-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    pointer-events: auto;
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+    .game-container.active .touch-controls.has-buttons {
+        display: flex;
+    }
+}
+
+.touch-controls .touch-dpad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.touch-controls .touch-dpad-row {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+}
+
+.touch-controls .touch-btn {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.5rem;
+    min-width: 52px;
+    min-height: 52px;
+    width: 52px;
+    height: 52px;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 255, 255, 0.2);
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+.touch-controls .touch-btn:active {
+    background: rgba(0, 255, 255, 0.4);
+    box-shadow: 0 0 25px var(--neon-cyan);
+}
+
+.touch-controls .touch-btn.action-btn {
+    min-width: 80px;
+    width: auto;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 0, 255, 0.2);
+    border-color: var(--neon-pink);
+    color: var(--neon-pink);
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+}
+
+.touch-controls .touch-btn.action-btn:active {
+    background: rgba(255, 0, 255, 0.4);
+    box-shadow: 0 0 25px var(--neon-pink);
+}
+
+.touch-controls .touch-btn .arrow {
+    font-size: 1.2rem;
+    line-height: 1;
 }
 
 /* === FOOTER === */
