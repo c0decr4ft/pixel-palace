@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIXEL PALACE - Game Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+    
+    <header class="arcade-header">
+        <div class="neon-sign">
+            <h1 class="title glitch" data-text="PIXEL PALACE">PIXEL PALACE</h1>
+            <p class="subtitle">INSERT COIN TO PLAY</p>
+        </div>
+        <div class="coin-counter">
+            <span class="coins">∞</span> CREDITS
+        </div>
+    </header>
+
+    <main class="game-lobby" id="lobby">
+        <div class="category-tabs">
+            <button class="tab active" data-category="all">ALL GAMES</button>
+            <button class="tab" data-category="arcade">ARCADE</button>
+            <button class="tab" data-category="puzzle">PUZZLE</button>
+            <button class="tab" data-category="action">ACTION</button>
+        </div>
+
+        <div class="games-grid">
+            <div class="game-cabinet" data-game="snake" data-category="arcade">
+                <div class="cabinet-screen">
+                    <div class="screen-content snake-preview">
+                        <div class="snake-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>SNAKE</h3>
+                    <p>Eat & Grow</p>
+                    <div class="difficulty">★★☆☆☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="tetris" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content tetris-preview">
+                        <div class="tetris-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>TETRIS</h3>
+                    <p>Stack Blocks</p>
+                    <div class="difficulty">★★★☆☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="pong" data-category="arcade">
+                <div class="cabinet-screen">
+                    <div class="screen-content pong-preview">
+                        <div class="pong-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>PONG</h3>
+                    <p>Classic Tennis</p>
+                    <div class="difficulty">★☆☆☆☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="breakout" data-category="arcade">
+                <div class="cabinet-screen">
+                    <div class="screen-content breakout-preview">
+                        <div class="breakout-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>BREAKOUT</h3>
+                    <p>Break Bricks</p>
+                    <div class="difficulty">★★★☆☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="spaceinvaders" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content space-preview">
+                        <div class="space-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>SPACE INVADERS</h3>
+                    <p>Alien Attack</p>
+                    <div class="difficulty">★★★★☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="memory" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content memory-preview">
+                        <div class="memory-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>MEMORY</h3>
+                    <p>Match Cards</p>
+                    <div class="difficulty">★★☆☆☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="flappy" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content flappy-preview">
+                        <div class="flappy-demo"></div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>FLAPPY PIXEL</h3>
+                    <p>Fly & Survive</p>
+                    <div class="difficulty">★★★★★</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet" data-game="2048" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content puzzle-preview">
+                        <div class="puzzle-demo">2048</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>2048</h3>
+                    <p>Merge Numbers</p>
+                    <div class="difficulty">★★★★☆</div>
+                </div>
+                <button class="play-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet online-cabinet" data-game="online" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content online-preview">
+                        <div class="online-demo">🎯</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>CYBER ARENA</h3>
+                    <p>Target Shooter</p>
+                    <div class="difficulty online-tag">MULTIPLAYER</div>
+                </div>
+                <button class="play-btn online-btn">PLAY</button>
+            </div>
+
+            <div class="game-cabinet race-cabinet" data-game="race" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content race-preview">
+                        <div class="race-demo">🏎️</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>NEON KART</h3>
+                    <p>Mario Kart Style</p>
+                    <div class="difficulty race-tag">ONLINE PVP</div>
+                </div>
+                <button class="play-btn race-btn">PLAY NOW</button>
+            </div>
+
+            <!-- NEW FUTURISTIC GAMES -->
+            <div class="game-cabinet futuristic-cabinet tank-cabinet" data-game="tanks" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview tank-preview">
+                        <div class="tank-demo">🎯</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>TANK WARS</h3>
+                    <p>Battle Online</p>
+                    <div class="difficulty futuristic-tag">⚡ ONLINE PVP</div>
+                </div>
+                <button class="play-btn futuristic-btn tank-btn">BATTLE</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet mine-cabinet" data-game="minesweeper" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview mine-preview">
+                        <div class="mine-demo">💣</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>MINE SCAN</h3>
+                    <p>Detect Threats</p>
+                    <div class="difficulty futuristic-tag">⚠ DANGER</div>
+                </div>
+                <button class="play-btn futuristic-btn mine-btn">SCAN</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet connect-cabinet" data-game="connect4" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview connect-preview">
+                        <div class="connect-demo">🔴🟡</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>QUAD LINK</h3>
+                    <p>Strategic Alignment</p>
+                    <div class="difficulty futuristic-tag">◆ TACTICAL</div>
+                </div>
+                <button class="play-btn futuristic-btn connect-btn">ENGAGE</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet tower-cabinet" data-game="tower" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview tower-preview">
+                        <div class="tower-demo">🏗️</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>HOLO STACK</h3>
+                    <p>Build Skyward</p>
+                    <div class="difficulty futuristic-tag">△ CONSTRUCT</div>
+                </div>
+                <button class="play-btn futuristic-btn tower-btn">BUILD</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet asteroid-cabinet" data-game="asteroids" data-category="arcade">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview asteroid-preview">
+                        <div class="asteroid-demo">☄️</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>VOID HUNTER</h3>
+                    <p>Space Combat</p>
+                    <div class="difficulty futuristic-tag">✦ DEEP SPACE</div>
+                </div>
+                <button class="play-btn futuristic-btn asteroid-btn">LAUNCH</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet draw-cabinet" data-game="drawing" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview draw-preview">
+                        <div class="draw-demo">🎨</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>HOLO DRAW</h3>
+                    <p>Create & Guess</p>
+                    <div class="difficulty futuristic-tag">✎ MULTIPLAYER</div>
+                </div>
+                <button class="play-btn futuristic-btn draw-btn">CREATE</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet zombie-cabinet" data-game="zombies" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview zombie-preview">
+                        <div class="zombie-demo">🧟</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>BIO HAZARD</h3>
+                    <p>Survive Infection</p>
+                    <div class="difficulty futuristic-tag">☣ OUTBREAK</div>
+                </div>
+                <button class="play-btn futuristic-btn zombie-btn">SURVIVE</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet runner-cabinet" data-game="runner" data-category="arcade">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview runner-preview">
+                        <div class="runner-demo">🏃</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>NEON DASH</h3>
+                    <p>Infinite Speed</p>
+                    <div class="difficulty futuristic-tag">↯ SYNTHWAVE</div>
+                </div>
+                <button class="play-btn futuristic-btn runner-btn">DASH</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet wordle-cabinet" data-game="wordle" data-category="puzzle">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview wordle-preview">
+                        <div class="wordle-demo">📝</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>CIPHER CODE</h3>
+                    <p>Decode Words</p>
+                    <div class="difficulty futuristic-tag">⌘ DECRYPT</div>
+                </div>
+                <button class="play-btn futuristic-btn wordle-btn">DECODE</button>
+            </div>
+
+            <div class="game-cabinet futuristic-cabinet royale-cabinet" data-game="royale" data-category="action">
+                <div class="cabinet-screen">
+                    <div class="screen-content futuristic-preview royale-preview">
+                        <div class="royale-demo">👑</div>
+                    </div>
+                </div>
+                <div class="cabinet-info">
+                    <h3>APEX ZONE</h3>
+                    <p>Last One Standing</p>
+                    <div class="difficulty futuristic-tag">♔ ONLINE PVP</div>
+                </div>
+                <button class="play-btn futuristic-btn royale-btn">DOMINATE</button>
+            </div>
+
+            <!-- GAME CREATOR (Admin Only) -->
+            <div class="game-cabinet add-game-cabinet" id="addGameBtn">
+                <div class="add-game-icon">+</div>
+                <div class="add-game-text">Add Game</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Game Creator Modal -->
+    <div class="creator-modal" id="creatorModal">
+        <div class="creator-content">
+            <button class="creator-close" id="closeCreator">×</button>
+            <h2 class="creator-title">⚡ GAME CREATOR ⚡</h2>
+            <form class="creator-form" id="creatorForm">
+                <div class="form-group">
+                    <label>Game Name</label>
+                    <input type="text" id="gameName" placeholder="Enter game name..." required>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="gameCategory">
+                        <option value="arcade">Arcade</option>
+                        <option value="puzzle">Puzzle</option>
+                        <option value="action">Action</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="gameDesc" placeholder="Short description...">
+                </div>
+                <div class="form-group">
+                    <label>Icon (Emoji)</label>
+                    <input type="text" id="gameIcon" placeholder="🎮" maxlength="4">
+                </div>
+                <div class="form-group">
+                    <label>Game Code (JavaScript)</label>
+                    <textarea id="gameCode" placeholder="// Your game initialization code here...
+function initMyGame() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    // Add your game logic...
+}"></textarea>
+                </div>
+                <div class="creator-buttons">
+                    <button type="button" class="creator-btn cancel" id="cancelCreator">Cancel</button>
+                    <button type="submit" class="creator-btn save">Save Game</button>
+                </div>
+            </form>
+            <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,255,255,0.1); border-radius: 5px;">
+                <p style="color: #888; font-size: 0.8rem;">
+                    💡 <strong>Tip:</strong> Custom games are saved to localStorage and will persist across sessions.
+                    Export your games by copying the code for backup.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <div class="game-header">
+            <button class="back-btn" id="backBtn">← LOBBY</button>
+            <div class="game-title" id="currentGameTitle">GAME</div>
+            <div class="score-display">SCORE: <span id="scoreValue">0</span></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="game-controls" id="gameControls"></div>
+    </div>
+
+    <footer class="arcade-footer">
+        <div class="marquee">
+            <span>🎮 WELCOME TO PIXEL PALACE 🎮 HIGH SCORES RESET DAILY 🏆 NEW GAMES ADDED WEEKLY 🎯 PLAY RESPONSIBLY 🕹️</span>
+        </div>
+        <div class="credits">
+            <span>CREATED BY</span>
+            <span class="creator-name">c0decr4ft</span>
+        </div>
+    </footer>
+
+    <script src="games.js"></script>
+</body>
+</html>
