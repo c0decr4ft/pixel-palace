@@ -25,6 +25,55 @@ let cleanupFunctions = [];
 // Sound Effects (Web Audio API)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+// Arcade background music (simple chiptune loop)
+let arcadeMusicOsc = null;
+let arcadeMusicGain = null;
+let arcadeMusicTimeout = null;
+const ARCADE_MELODY = [
+    [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
+    [392, 0.15], [523, 0.25], [0, 0.1],
+    [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
+    [392, 0.15], [330, 0.25], [0, 0.1],
+    [349, 0.15], [440, 0.15], [523, 0.15], [698, 0.2],
+    [523, 0.15], [440, 0.25], [0, 0.1],
+    [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
+    [392, 0.15], [330, 0.2], [262, 0.4]
+];
+function stopArcadeMusic() {
+    if (arcadeMusicTimeout) clearTimeout(arcadeMusicTimeout);
+    arcadeMusicTimeout = null;
+    if (arcadeMusicOsc) {
+        try { arcadeMusicOsc.stop(); } catch (e) {}
+        arcadeMusicOsc = null;
+    }
+    arcadeMusicGain = null;
+}
+function scheduleArcadeMusicStep(stepIndex) {
+    if (!arcadeMusicGain || !gameContainer || !gameContainer.classList.contains('active')) return;
+    const [freq, dur] = ARCADE_MELODY[stepIndex % ARCADE_MELODY.length];
+    const next = (stepIndex + 1) % ARCADE_MELODY.length;
+    arcadeMusicTimeout = setTimeout(() => {
+        scheduleArcadeMusicStep(next);
+    }, (dur + 0.02) * 1000);
+    if (freq > 0 && arcadeMusicOsc) {
+        arcadeMusicOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        arcadeMusicGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        arcadeMusicGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    }
+}
+function startArcadeMusic() {
+    stopArcadeMusic();
+    if (audioCtx.state === 'suspended') return;
+    arcadeMusicOsc = audioCtx.createOscillator();
+    arcadeMusicOsc.type = 'square';
+    arcadeMusicGain = audioCtx.createGain();
+    arcadeMusicGain.gain.value = 0;
+    arcadeMusicOsc.connect(arcadeMusicGain);
+    arcadeMusicGain.connect(audioCtx.destination);
+    arcadeMusicOsc.start(audioCtx.currentTime);
+    scheduleArcadeMusicStep(0);
+}
+
 function playSound(frequency, duration, type = 'square') {
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -123,14 +172,12 @@ function startGame(gameName) {
     
     if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
     
+    if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic());
+    else startArcadeMusic();
+    
     // Show the name of the game you're playing in the header
     if (currentGameTitle) {
         currentGameTitle.textContent = GAME_DISPLAY_NAMES[gameName] || gameName.toUpperCase();
-    }
-    
-    // Resume audio context
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
     }
     
     switch(gameName) {
@@ -191,10 +238,8 @@ function stopGame() {
         canvas.ontouchmove = null;
         canvas.oncontextmenu = null;
     }
-    if (touchControls) {
-        touchControls.innerHTML = '';
-        touchControls.classList.remove('has-buttons');
-    }
+    clearTouchControls();
+    stopArcadeMusic();
 }
 
 let handleKeyUp = null;
@@ -207,6 +252,24 @@ function updateScore(newScore) {
 let handleKeyDown = null;
 
 // --- Touch support helpers ---
+let touchHandlerMap = {};
+function handleTouchEnd(e) {
+    if (!e.changedTouches || !e.changedTouches.length) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const id = e.changedTouches[i].identifier;
+        const fn = touchHandlerMap[id];
+        if (fn) {
+            try { fn(false); } catch (err) {}
+            delete touchHandlerMap[id];
+        }
+    }
+}
+function setupGlobalTouchRelease() {
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+}
+if (typeof document !== 'undefined') setupGlobalTouchRelease();
+
 function getEventCanvasCoords(e) {
     const t = e.touches && e.touches.length ? e.touches[0] : e.changedTouches && e.changedTouches.length ? e.changedTouches[0] : e;
     if (!t || !canvas) return null;
@@ -217,6 +280,7 @@ function getEventCanvasCoords(e) {
 }
 
 function clearTouchControls() {
+    touchHandlerMap = {};
     if (touchControls) {
         touchControls.innerHTML = '';
         touchControls.classList.remove('has-buttons');
@@ -242,8 +306,23 @@ function addTouchDpad(options) {
         btn.innerHTML = label;
         btn.setAttribute('aria-label', label);
         const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
-        btn.addEventListener('touchstart', (e) => { prevent(e); handler(true); }, { passive: false });
-        btn.addEventListener('touchend', (e) => { prevent(e); handler(false); }, { passive: false });
+        const onTouchStart = (e) => {
+            prevent(e);
+            if (e.changedTouches && e.changedTouches.length) {
+                touchHandlerMap[e.changedTouches[0].identifier] = handler;
+            }
+            handler(true);
+        };
+        const onTouchEnd = (e) => {
+            prevent(e);
+            if (e.changedTouches && e.changedTouches.length) {
+                delete touchHandlerMap[e.changedTouches[0].identifier];
+            }
+            handler(false);
+        };
+        btn.addEventListener('touchstart', onTouchStart, { passive: false });
+        btn.addEventListener('touchend', onTouchEnd, { passive: false });
+        btn.addEventListener('touchcancel', onTouchEnd, { passive: false });
         btn.addEventListener('mousedown', (e) => { e.preventDefault(); handler(true); });
         btn.addEventListener('mouseup', () => handler(false));
         btn.addEventListener('mouseleave', () => handler(false));
@@ -1668,8 +1747,11 @@ function initBreakout() {
         }
     }, { passive: false });
     canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length) setPaddleFromClientX(e.touches[0].clientX);
-    }, { passive: true });
+        if (e.touches.length) {
+            e.preventDefault();
+            setPaddleFromClientX(e.touches[0].clientX);
+        }
+    }, { passive: false });
     
     let lastTime = performance.now();
     const PADDLE_SPEED = 480;

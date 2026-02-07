@@ -743,6 +743,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     pointer-events: auto;
+    touch-action: none;
 }
 
 @media (pointer: coarse), (max-width: 900px) {
