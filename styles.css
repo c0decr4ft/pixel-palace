@@ -510,6 +510,17 @@ body {
     background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);
 }
 
+.citybuilder-preview {
+    background: linear-gradient(180deg, #87ceeb 0%, #e8f4e8 50%, #9cb86c 100%);
+    justify-content: center;
+    align-items: center;
+}
+
+.citybuilder-demo {
+    font-size: 2.5rem;
+    opacity: 0.9;
+}
+
 .puzzle-demo {
     font-family: 'Orbitron', sans-serif;
     font-size: 2rem;
@@ -631,6 +642,9 @@ body {
     display: flex;
     touch-action: manipulation;
     -webkit-overflow-scrolling: touch;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .game-header {
@@ -683,8 +697,12 @@ body {
         inset 0 0 50px rgba(0, 255, 255, 0.1);
     max-width: 100%;
     max-height: 70vh;
-    touch-action: manipulation;
+    touch-action: none;
     display: block;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    will-change: transform;
 }
 
 .game-controls {
@@ -695,7 +713,7 @@ body {
     text-align: center;
 }
 
-/* Touch controls: show on touch devices and small screens */
+/* Touch controls: show on touch devices and small screens; prevent text selection on arrows */
 .touch-controls {
     display: none;
     position: absolute;
@@ -708,6 +726,10 @@ body {
     gap: 0.5rem;
     pointer-events: none;
     z-index: 10;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
 }
 
 .touch-controls.has-buttons {
@@ -720,6 +742,82 @@ body {
     .game-container.active .touch-controls.has-buttons {
         display: flex;
     }
+}
+
+/* Pong: rotate device overlay (portrait on touch) */
+.pong-rotate-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(10, 0, 21, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.pong-rotate-message {
+    text-align: center;
+    max-width: 280px;
+}
+
+.pong-rotate-icon {
+    font-size: 4rem;
+    display: block;
+    margin-bottom: 1rem;
+    animation: pong-rotate-hint-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pong-rotate-hint-pulse {
+    0%, 100% { transform: rotate(-15deg); }
+    50% { transform: rotate(75deg); }
+}
+
+.pong-rotate-message p {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    color: var(--neon-cyan);
+    margin: 0.5rem 0;
+}
+
+.pong-rotate-hint {
+    font-size: 0.85rem !important;
+    color: #888 !important;
+}
+
+/* Pong: game area wrapper (default: column stack) */
+.pong-game-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: 900px;
+}
+
+/* Pong: landscape — game and controls side by side */
+.game-container.pong-landscape-layout .pong-game-area {
+    flex-direction: row;
+}
+
+.pong-game-area #gameCanvas {
+    flex: 1;
+    min-width: 0;
+    max-height: 70vh;
+}
+
+.pong-game-area .touch-controls {
+    position: relative;
+    flex-shrink: 0;
+    flex-direction: column;
+    bottom: auto;
+}
+
+.pong-game-area .touch-controls.has-buttons {
+    display: flex;
 }
 
 .touch-controls .touch-dpad {
@@ -753,7 +851,9 @@ body {
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    -webkit-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
 }
 
@@ -1791,6 +1891,247 @@ body {
 
 .creator-close:hover {
     color: #ff00ff;
+}
+
+/* === CITY BUILDER (clean non-pixel style) === */
+.game-container.citybuilder-active {
+    background: linear-gradient(180deg, #e8f0f5 0%, #d4e4ed 100%);
+}
+
+.game-container.citybuilder-active .game-title,
+.game-container.citybuilder-active .score-display,
+.game-container.citybuilder-active .back-btn {
+    color: #2c5282;
+    text-shadow: none;
+}
+
+.game-container.citybuilder-active .back-btn {
+    border-color: #2c5282;
+}
+
+.game-container.citybuilder-active .back-btn:hover {
+    background: #2c5282;
+    color: #fff;
+}
+
+.citybuilder-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%;
+    max-width: 950px;
+    flex: 1;
+    min-height: 0;
+    align-items: flex-start;
+}
+
+.citybuilder-canvas-wrap {
+    flex: 0 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.citybuilder-canvas-wrap canvas {
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    background: #b8d4b8 !important;
+}
+
+.citybuilder-panel {
+    font-family: 'Orbitron', sans-serif;
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem;
+    min-width: 220px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    border: 1px solid #e2e8f0;
+}
+
+.citybuilder-panel h4 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.citybuilder-resources {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+}
+
+.citybuilder-resource {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #334155;
+}
+
+.citybuilder-resource span:last-child {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.citybuilder-build-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.citybuilder-build-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    padding: 0.5rem 0.6rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.citybuilder-build-btn:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.citybuilder-build-btn.selected {
+    background: #2c5282;
+    border-color: #2c5282;
+    color: #fff;
+}
+
+.citybuilder-build-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.citybuilder-action-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.5rem;
+}
+
+.citybuilder-turn-btn {
+    background: #2c5282;
+    color: #fff;
+}
+
+.citybuilder-turn-btn:hover {
+    background: #1e3a5f;
+}
+
+.citybuilder-trade-btn {
+    background: #0d9488;
+    color: #fff;
+}
+
+.citybuilder-trade-btn:hover {
+    background: #0f766e;
+}
+
+.citybuilder-trade-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.citybuilder-trade-modal {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 420px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    font-family: 'Orbitron', sans-serif;
+}
+
+.citybuilder-trade-modal h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: #1e293b;
+}
+
+.citybuilder-trade-city {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid #e2e8f0;
+}
+
+.citybuilder-trade-city h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.8rem;
+    color: #334155;
+    border: none;
+    padding: 0;
+}
+
+.citybuilder-trade-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+    color: #64748b;
+}
+
+.citybuilder-trade-row input {
+    width: 50px;
+    padding: 0.25rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    text-align: right;
+}
+
+.citybuilder-trade-close {
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.6rem;
+    background: #64748b;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.citybuilder-trade-close:hover {
+    background: #475569;
+}
+
+@media (max-width: 700px) {
+    .citybuilder-layout {
+        flex-direction: column;
+        align-items: center;
+    }
+    .citybuilder-panel {
+        min-width: 100%;
+        max-width: 320px;
+    }
 }
 
 /* === SCROLLBAR === */

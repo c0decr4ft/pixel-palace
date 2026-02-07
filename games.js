@@ -89,6 +89,15 @@ if (backBtn) {
     });
 }
 
+// Prevent arrow keys and game keys from scrolling/selecting text when a game is active (stops phone from "copy" popup)
+const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'];
+function preventGameKeyDefault(e) {
+    if (gameContainer && gameContainer.classList.contains('active') && GAME_KEYS.includes(e.key)) {
+        e.preventDefault();
+    }
+}
+document.addEventListener('keydown', preventGameKeyDefault, { capture: true, passive: false });
+
 // Display names for the game header (so the correct game name always shows when you start)
 const GAME_DISPLAY_NAMES = {
     snake: 'SNAKE',
@@ -98,7 +107,8 @@ const GAME_DISPLAY_NAMES = {
     spaceinvaders: 'SPACE INVADERS',
     memory: 'MEMORY',
     flappy: 'FLAPPY PIXEL',
-    '2048': '2048'
+    '2048': '2048',
+    citybuilder: 'CITY TRADE'
 };
 
 function startGame(gameName) {
@@ -110,6 +120,8 @@ function startGame(gameName) {
     gameContainer.classList.add('active');
     score = 0;
     updateScore(0);
+    
+    if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
     
     // Show the name of the game you're playing in the header
     if (currentGameTitle) {
@@ -146,6 +158,9 @@ function startGame(gameName) {
         case '2048':
             init2048();
             break;
+        case 'citybuilder':
+            initCityBuilder();
+            break;
     }
 }
 
@@ -174,6 +189,7 @@ function stopGame() {
         canvas.ontouchstart = null;
         canvas.ontouchend = null;
         canvas.ontouchmove = null;
+        canvas.oncontextmenu = null;
     }
     if (touchControls) {
         touchControls.innerHTML = '';
@@ -395,10 +411,9 @@ function initSnake() {
             ctx.stroke();
         }
         
-        // Draw food
         ctx.fillStyle = '#ff0000';
         ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.arc(
             food.x * gridSize + gridSize/2,
@@ -408,8 +423,8 @@ function initSnake() {
         );
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
-        // Draw snake
         snake.forEach((segment, index) => {
             const gradient = ctx.createRadialGradient(
                 segment.x * gridSize + gridSize/2,
@@ -423,7 +438,7 @@ function initSnake() {
             gradient.addColorStop(1, '#00aa00');
             ctx.fillStyle = gradient;
             ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = index === 0 ? 15 : 5;
+            ctx.shadowBlur = index === 0 ? 6 : 2;
             ctx.fillRect(
                 segment.x * gridSize + 1,
                 segment.y * gridSize + 1,
@@ -432,6 +447,7 @@ function initSnake() {
             );
         });
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
     }
     
     gameLoop = requestAnimationFrame(update);
@@ -665,13 +681,16 @@ function initPong() {
     const paddleWidth = 15;
     const paddleHeight = 80;
     const ballSize = 15;
+    const PADDLE_SPEED = 280;
+    const AI_SPEED = 150;
+    const BALL_SPEED_BASE = 300;
     
     let playerY = canvas.height / 2 - paddleHeight / 2;
     let aiY = canvas.height / 2 - paddleHeight / 2;
     let ballX = canvas.width / 2;
     let ballY = canvas.height / 2;
-    let ballSpeedX = 5;
-    let ballSpeedY = 3;
+    let ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
+    let ballSpeedY = ((Math.random() - 0.5) * 360 / 60);
     let playerScore = 0;
     let aiScore = 0;
     
@@ -692,28 +711,79 @@ function initPong() {
         onDown: (p) => { touchKeys['ArrowDown'] = p; }
     });
     
-    function update() {
+    // Mobile: require landscape; show rotate overlay until then
+    const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
+    const isPortrait = () => window.innerWidth < window.innerHeight;
+    let pongGameStarted = !isTouchDevice || !isPortrait();
+    
+    const rotateOverlay = document.createElement('div');
+    rotateOverlay.className = 'pong-rotate-overlay';
+    rotateOverlay.innerHTML = '<div class="pong-rotate-message"><span class="pong-rotate-icon">📱</span><p>Turn your phone 90° to play Pong</p><p class="pong-rotate-hint">Landscape mode</p></div>';
+    rotateOverlay.style.display = pongGameStarted ? 'none' : 'flex';
+    gameContainer.appendChild(rotateOverlay);
+    
+    const pongGameArea = document.createElement('div');
+    pongGameArea.className = 'pong-game-area';
+    pongGameArea.appendChild(canvas);
+    pongGameArea.appendChild(touchControls);
+    gameContainer.insertBefore(pongGameArea, gameControls);
+    
+    function checkPongOrientation() {
+        if (!isTouchDevice) return;
+        const portrait = isPortrait();
+        if (portrait && !pongGameStarted) {
+            rotateOverlay.style.display = 'flex';
+        } else {
+            rotateOverlay.style.display = 'none';
+            if (!pongGameStarted) {
+                pongGameStarted = true;
+                gameContainer.classList.add('pong-landscape-layout');
+            }
+        }
+    }
+    window.addEventListener('orientationchange', checkPongOrientation);
+    window.addEventListener('resize', checkPongOrientation);
+    checkPongOrientation();
+    
+    let lastTime = performance.now();
+    
+    function update(now) {
         gameLoop = requestAnimationFrame(update);
         
-        // Player movement
+        let dt = (now - lastTime) / 1000;
+        lastTime = now;
+        if (dt > 0.1) dt = 1/60;
+        const scale = Math.min(dt * 60, 3);
+        
+        if (!pongGameStarted) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.fillText('Rotate device to play', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        // Player movement (delta-time)
         if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
-            playerY = Math.max(0, playerY - 8);
+            playerY = Math.max(0, playerY - PADDLE_SPEED * dt);
         }
         if (keys['s'] || keys['S'] || keys['ArrowDown'] || touchKeys['ArrowDown']) {
-            playerY = Math.min(canvas.height - paddleHeight, playerY + 8);
+            playerY = Math.min(canvas.height - paddleHeight, playerY + PADDLE_SPEED * dt);
         }
         
-        // AI movement
+        // AI movement (delta-time)
         const aiCenter = aiY + paddleHeight / 2;
         if (aiCenter < ballY - 20) {
-            aiY = Math.min(canvas.height - paddleHeight, aiY + 4);
+            aiY = Math.min(canvas.height - paddleHeight, aiY + AI_SPEED * dt);
         } else if (aiCenter > ballY + 20) {
-            aiY = Math.max(0, aiY - 4);
+            aiY = Math.max(0, aiY - AI_SPEED * dt);
         }
         
-        // Ball movement
-        ballX += ballSpeedX;
-        ballY += ballSpeedY;
+        // Ball movement (delta-time)
+        ballX += ballSpeedX * scale;
+        ballY += ballSpeedY * scale;
         
         // Ball collision with top/bottom
         if (ballY <= 0 || ballY >= canvas.height - ballSize) {
@@ -722,29 +792,26 @@ function initPong() {
         }
         
         // Ball collision with paddles
-        // Player paddle
         if (ballX <= paddleWidth + 20 && 
             ballY + ballSize >= playerY && 
             ballY <= playerY + paddleHeight &&
             ballSpeedX < 0) {
             ballSpeedX = -ballSpeedX * 1.05;
             const hitPos = (ballY - playerY) / paddleHeight;
-            ballSpeedY = (hitPos - 0.5) * 10;
+            ballSpeedY = (hitPos - 0.5) * (600 / 60);
             playSound(500, 0.1);
         }
         
-        // AI paddle
         if (ballX >= canvas.width - paddleWidth - 20 - ballSize && 
             ballY + ballSize >= aiY && 
             ballY <= aiY + paddleHeight &&
             ballSpeedX > 0) {
             ballSpeedX = -ballSpeedX * 1.05;
             const hitPos = (ballY - aiY) / paddleHeight;
-            ballSpeedY = (hitPos - 0.5) * 10;
+            ballSpeedY = (hitPos - 0.5) * (600 / 60);
             playSound(500, 0.1);
         }
         
-        // Scoring
         if (ballX < 0) {
             aiScore++;
             resetBall();
@@ -757,7 +824,6 @@ function initPong() {
             playSound(800, 0.2);
         }
         
-        // Limit ball speed
         ballSpeedX = Math.max(-15, Math.min(15, ballSpeedX));
         ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
         
@@ -765,7 +831,6 @@ function initPong() {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Center line
         ctx.setLineDash([10, 10]);
         ctx.strokeStyle = '#333';
         ctx.beginPath();
@@ -774,26 +839,22 @@ function initPong() {
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // Paddles
         ctx.fillStyle = '#00ffff';
         ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 8;
         ctx.fillRect(20, playerY, paddleWidth, paddleHeight);
-        
         ctx.fillStyle = '#ff00ff';
         ctx.shadowColor = '#ff00ff';
         ctx.fillRect(canvas.width - paddleWidth - 20, aiY, paddleWidth, paddleHeight);
-        
-        // Ball
         ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 10;
         ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 30;
         ctx.beginPath();
         ctx.arc(ballX + ballSize/2, ballY + ballSize/2, ballSize/2, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
-        // Scores
         ctx.font = '48px "Press Start 2P"';
         ctx.fillStyle = '#00ffff';
         ctx.textAlign = 'center';
@@ -805,11 +866,21 @@ function initPong() {
     function resetBall() {
         ballX = canvas.width / 2;
         ballY = canvas.height / 2;
-        ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 5;
-        ballSpeedY = (Math.random() - 0.5) * 6;
+        ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * (BALL_SPEED_BASE / 60);
+        ballSpeedY = (Math.random() - 0.5) * (360 / 60);
     }
     
     gameLoop = requestAnimationFrame(update);
+    
+    cleanupFunctions.push(() => {
+        gameContainer.classList.remove('pong-landscape-layout');
+        rotateOverlay.remove();
+        pongGameArea.remove();
+        gameContainer.insertBefore(canvas, gameControls);
+        gameContainer.insertBefore(touchControls, gameControls);
+        window.removeEventListener('orientationchange', checkPongOrientation);
+        window.removeEventListener('resize', checkPongOrientation);
+    });
 }
 
 // === BREAKOUT GAME ===
@@ -882,15 +953,24 @@ function initBreakout() {
         if (e.touches.length) setPaddleFromClientX(e.touches[0].clientX);
     }, { passive: true });
     
-    function update() {
+    let lastTime = performance.now();
+    const PADDLE_SPEED = 480;
+    const BALL_SPEED_SCALE = 60;
+    
+    function update(now) {
         gameLoop = requestAnimationFrame(update);
         
-        if (keys['ArrowLeft']) paddleX = Math.max(0, paddleX - 8);
-        if (keys['ArrowRight']) paddleX = Math.min(canvas.width - paddleWidth, paddleX + 8);
+        let dt = (now - lastTime) / 1000;
+        lastTime = now;
+        if (dt > 0.1) dt = 1/60;
+        const scale = Math.min(dt * 60, 3);
+        
+        if (keys['ArrowLeft']) paddleX = Math.max(0, paddleX - PADDLE_SPEED * dt);
+        if (keys['ArrowRight']) paddleX = Math.min(canvas.width - paddleWidth, paddleX + PADDLE_SPEED * dt);
         
         if (!gameOver && !win) {
-            ballX += ballSpeedX;
-            ballY += ballSpeedY;
+            ballX += ballSpeedX * scale;
+            ballY += ballSpeedY * scale;
             
             // Wall collisions
             if (ballX <= 0 || ballX >= canvas.width - ballSize) {
@@ -959,27 +1039,27 @@ function initBreakout() {
                     const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
                     ctx.fillStyle = brick.color;
                     ctx.shadowColor = brick.color;
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 4;
                     ctx.fillRect(brickX, brickY, brickWidth, brickHeight);
                 }
             }
         }
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
-        // Draw paddle
         ctx.fillStyle = '#00ffff';
         ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 6;
         ctx.fillRect(paddleX, canvas.height - paddleHeight - 20, paddleWidth, paddleHeight);
         
-        // Draw ball
         ctx.fillStyle = '#fff';
         ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.arc(ballX, ballY, ballSize, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -1078,14 +1158,23 @@ function initSpaceInvaders() {
     });
     
     let lastEnemyShot = 0;
+    let lastTime = performance.now();
+    const PLAYER_SPEED = 360;
+    const BULLET_SPEED = 480;
+    const ENEMY_BULLET_SPEED = 300;
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
         
+        let dt = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+        if (dt > 0.1) dt = 1/60;
+        const scale = Math.min(dt * 60, 3);
+        
         if (!gameOver && !win) {
-            // Player movement
-            if (keys['ArrowLeft'] || touchKeys['ArrowLeft']) playerX = Math.max(0, playerX - 6);
-            if (keys['ArrowRight'] || touchKeys['ArrowRight']) playerX = Math.min(canvas.width - playerWidth, playerX + 6);
+            // Player movement (delta-time)
+            if (keys['ArrowLeft'] || touchKeys['ArrowLeft']) playerX = Math.max(0, playerX - PLAYER_SPEED * dt);
+            if (keys['ArrowRight'] || touchKeys['ArrowRight']) playerX = Math.min(canvas.width - playerWidth, playerX + PLAYER_SPEED * dt);
             
             // Move invaders
             let moveDown = false;
@@ -1114,14 +1203,16 @@ function initSpaceInvaders() {
                     }
                 }
             } else {
+                const invaderMove = invaderSpeed * scale;
                 for (let inv of invaders) {
-                    inv.x += invaderDirection * invaderSpeed;
+                    inv.x += invaderDirection * invaderMove;
                 }
             }
             
-            // Move bullets
+            // Move bullets (delta-time)
+            const bulletMove = BULLET_SPEED * dt;
             bullets = bullets.filter(b => {
-                b.y -= 8;
+                b.y -= bulletMove;
                 return b.y > 0;
             });
             
@@ -1132,8 +1223,9 @@ function initSpaceInvaders() {
                 lastEnemyShot = currentTime;
             }
             
+            const enemyBulletMove = ENEMY_BULLET_SPEED * dt;
             enemyBullets = enemyBullets.filter(b => {
-                b.y += 5;
+                b.y += enemyBulletMove;
                 return b.y < canvas.height;
             });
             
@@ -1180,19 +1272,19 @@ function initSpaceInvaders() {
             if (inv.alive) {
                 ctx.fillStyle = '#00ff00';
                 ctx.shadowColor = '#00ff00';
-                ctx.shadowBlur = 10;
-                // Simple alien shape
+                ctx.shadowBlur = 4;
                 ctx.fillRect(inv.x + 5, inv.y, invaderWidth - 10, invaderHeight - 10);
                 ctx.fillRect(inv.x, inv.y + 10, invaderWidth, invaderHeight - 15);
                 ctx.fillRect(inv.x + 5, inv.y + invaderHeight - 10, 10, 10);
                 ctx.fillRect(inv.x + invaderWidth - 15, inv.y + invaderHeight - 10, 10, 10);
             }
         }
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
-        // Draw player
         ctx.fillStyle = '#00ffff';
+        ctx.shadowBlur = 6;
         ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 20;
         ctx.beginPath();
         ctx.moveTo(playerX + playerWidth / 2, canvas.height - 50);
         ctx.lineTo(playerX, canvas.height - 20);
@@ -1200,21 +1292,20 @@ function initSpaceInvaders() {
         ctx.closePath();
         ctx.fill();
         
-        // Draw bullets
         ctx.fillStyle = '#ffff00';
+        ctx.shadowBlur = 4;
         ctx.shadowColor = '#ffff00';
-        ctx.shadowBlur = 10;
         for (let bullet of bullets) {
             ctx.fillRect(bullet.x - 2, bullet.y, 4, 15);
         }
         
-        // Draw enemy bullets
         ctx.fillStyle = '#ff0000';
         ctx.shadowColor = '#ff0000';
         for (let bullet of enemyBullets) {
             ctx.fillRect(bullet.x - 2, bullet.y, 4, 15);
         }
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -1473,28 +1564,31 @@ function initFlappy() {
     
     spawnPipe();
     
-    function update() {
+    let lastTime = performance.now();
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bgGradient.addColorStop(0, '#001133');
+    bgGradient.addColorStop(1, '#003366');
+    
+    function update(now) {
         gameLoop = requestAnimationFrame(update);
         
-        const currentTime = performance.now();
+        const currentTime = now;
+        let dt = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+        if (dt > 0.1) dt = 1/60;
+        const scale = Math.min(dt * 60, 3);
         
-        // Draw background
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#001133');
-        gradient.addColorStop(1, '#003366');
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Stars
         ctx.fillStyle = '#ffffff33';
         for (let i = 0; i < 30; i++) {
             ctx.fillRect((i * 47) % canvas.width, (i * 83) % canvas.height, 2, 2);
         }
         
         if (started && !gameOver) {
-            // Bird physics
-            birdVelocity += gravity;
-            birdY += birdVelocity;
+            // Bird physics (delta-time for consistent speed on all devices)
+            birdVelocity += gravity * scale;
+            birdY += birdVelocity * scale;
             
             // Spawn pipes using proper time tracking
             if (currentTime - lastPipeSpawnTime > pipeSpawnInterval) {
@@ -1502,9 +1596,10 @@ function initFlappy() {
                 lastPipeSpawnTime = currentTime;
             }
             
-            // Move pipes
+            // Move pipes (delta-time: ~180 px/s)
+            const pipeSpeed = 180 * dt;
             pipes = pipes.filter(pipe => {
-                pipe.x -= 3;
+                pipe.x -= pipeSpeed;
                 return pipe.x > -pipeWidth;
             });
             
@@ -1539,26 +1634,22 @@ function initFlappy() {
             }
         }
         
-        // Draw pipes
         for (let pipe of pipes) {
-            // Top pipe
             ctx.fillStyle = '#00cc00';
             ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 4;
             ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
             ctx.fillRect(pipe.x - 5, pipe.topHeight - 30, pipeWidth + 10, 30);
-            
-            // Bottom pipe
             const bottomY = pipe.topHeight + pipeGap;
             ctx.fillRect(pipe.x, bottomY, pipeWidth, canvas.height - bottomY);
             ctx.fillRect(pipe.x - 5, bottomY, pipeWidth + 10, 30);
         }
         ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
         
-        // Draw bird
         ctx.fillStyle = '#ffff00';
         ctx.shadowColor = '#ffff00';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 6;
         
         const birdX = 80;
         const rotation = Math.min(Math.max(birdVelocity * 3, -30), 90);
@@ -1871,6 +1962,262 @@ function init2048() {
     }
     
     gameLoop = requestAnimationFrame(draw);
+}
+
+// === CITY TRADE - City builder with economy and trading (clean non-pixel style) ===
+function initCityBuilder() {
+    currentGameTitle.textContent = 'CITY TRADE';
+    gameControls.innerHTML = 'Click a build button, then click an empty tile to build. Next Turn collects income. Trade with other cities for resources.';
+
+    const COLS = 10;
+    const ROWS = 8;
+    const CELL = 40;
+    canvas.width = COLS * CELL;
+    canvas.height = ROWS * CELL;
+
+    const BUILD = {
+        road:   { cost: 10,  label: 'Road',   color: '#6b7280' },
+        house:  { cost: 50,  label: 'House',  color: '#c4a77d', income: 20, incomeType: 'gold' },
+        farm:   { cost: 30,  label: 'Farm',   color: '#a8c68a', income: 5,  incomeType: 'grain' },
+        sawmill: { cost: 40, label: 'Sawmill', color: '#8b7355', income: 3, incomeType: 'wood' },
+        quarry: { cost: 50,  label: 'Quarry', color: '#78716c', income: 2, incomeType: 'stone' }
+    };
+
+    let grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(''));
+    let gold = 500;
+    let wood = 20;
+    let stone = 20;
+    let grain = 20;
+    let selectedBuild = null;
+
+    const AI_CITIES = [
+        { name: 'Harbor Bay', woodSell: 5, woodBuy: 12, stoneSell: 6, stoneBuy: 14, grainSell: 4, grainBuy: 10 },
+        { name: 'Mountain Gate', woodSell: 4, woodBuy: 11, stoneSell: 8, stoneBuy: 16, grainSell: 5, grainBuy: 12 },
+        { name: 'Green Valley', woodSell: 6, woodBuy: 13, stoneSell: 5, stoneBuy: 13, grainSell: 7, grainBuy: 11 }
+    ];
+
+    gameContainer.classList.add('citybuilder-active');
+    const scoreDisplay = scoreValue && scoreValue.parentElement;
+    const scoreLabel = scoreDisplay && scoreDisplay.firstChild;
+    if (scoreLabel) scoreLabel.textContent = 'GOLD: ';
+    updateScore(gold);
+
+    const layout = document.createElement('div');
+    layout.className = 'citybuilder-layout';
+    const canvasWrap = document.createElement('div');
+    canvasWrap.className = 'citybuilder-canvas-wrap';
+    canvasWrap.appendChild(canvas);
+    layout.appendChild(canvasWrap);
+
+    const panel = document.createElement('div');
+    panel.className = 'citybuilder-panel';
+
+    const resDiv = document.createElement('div');
+    resDiv.className = 'citybuilder-resources';
+    resDiv.innerHTML = '<h4>Resources</h4>' +
+        '<div class="citybuilder-resource"><span>Gold</span><span id="cbGold">0</span></div>' +
+        '<div class="citybuilder-resource"><span>Wood</span><span id="cbWood">0</span></div>' +
+        '<div class="citybuilder-resource"><span>Stone</span><span id="cbStone">0</span></div>' +
+        '<div class="citybuilder-resource"><span>Grain</span><span id="cbGrain">0</span></div>';
+    panel.appendChild(resDiv);
+
+    const buildDiv = document.createElement('div');
+    buildDiv.className = 'citybuilder-build-btns';
+    buildDiv.innerHTML = '<h4>Build</h4>';
+    const buildBtns = {};
+    ['road', 'house', 'farm', 'sawmill', 'quarry'].forEach(key => {
+        const btn = document.createElement('button');
+        btn.className = 'citybuilder-build-btn';
+        btn.textContent = BUILD[key].label + ' (' + BUILD[key].cost + 'g)';
+        btn.dataset.build = key;
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.citybuilder-build-btn').forEach(b => b.classList.remove('selected'));
+            if (selectedBuild === key) { selectedBuild = null; return; }
+            selectedBuild = key;
+            btn.classList.add('selected');
+        });
+        buildDiv.appendChild(btn);
+        buildBtns[key] = btn;
+    });
+    panel.appendChild(buildDiv);
+
+    const turnBtn = document.createElement('button');
+    turnBtn.className = 'citybuilder-action-btn citybuilder-turn-btn';
+    turnBtn.textContent = 'Next Turn';
+    turnBtn.addEventListener('click', () => {
+        gold = Math.max(0, gold);
+        grid.forEach((row, r) => {
+            row.forEach((cell, c) => {
+                if (!cell || !BUILD[cell]) return;
+                const b = BUILD[cell];
+                if (b.incomeType === 'gold') gold += b.income;
+                else if (b.incomeType === 'wood') wood += b.income;
+                else if (b.incomeType === 'stone') stone += b.income;
+                else if (b.incomeType === 'grain') grain += b.income;
+            });
+        });
+        updateScore(gold);
+        playSound(400, 0.08);
+    });
+    panel.appendChild(turnBtn);
+
+    const tradeBtn = document.createElement('button');
+    tradeBtn.className = 'citybuilder-action-btn citybuilder-trade-btn';
+    tradeBtn.textContent = 'Trade with other cities';
+    let tradeOverlayRef = null;
+    tradeBtn.addEventListener('click', () => {
+        if (tradeOverlayRef) return;
+        tradeOverlayRef = document.createElement('div');
+        tradeOverlayRef.className = 'citybuilder-trade-overlay';
+        const modal = document.createElement('div');
+        modal.className = 'citybuilder-trade-modal';
+        modal.innerHTML = '<h3>Trade with other cities</h3>';
+        AI_CITIES.forEach(city => {
+            const card = document.createElement('div');
+            card.className = 'citybuilder-trade-city';
+            card.innerHTML = '<h4>' + city.name + '</h4>' +
+                '<div class="citybuilder-trade-row">Wood: Sell <input type="number" min="0" value="0" data-city="' + city.name + '" data-res="wood" data-type="sell"> @ ' + city.woodSell + 'g each</div>' +
+                '<div class="citybuilder-trade-row">Wood: Buy <input type="number" min="0" value="0" data-city="' + city.name + '" data-res="wood" data-type="buy"> @ ' + city.woodBuy + 'g each</div>' +
+                '<div class="citybuilder-trade-row">Stone: Sell <input type="number" min="0" value="0" data-city="' + city.name + '" data-res="stone" data-type="sell"> @ ' + city.stoneSell + 'g each</div>' +
+                '<div class="citybuilder-trade-row">Stone: Buy <input type="number" min="0" value="0" data-city="' + city.name + '" data-res="stone" data-type="buy"> @ ' + city.stoneBuy + 'g each</div>' +
+                '<div class="citybuilder-trade-row">Grain: Sell <input type="number" min="0" value="0" data-city="' + city.name + '" data-res="grain" data-type="sell"> @ ' + city.grainSell + 'g each</div>' +
+                '<div class="citybuilder-trade-row">Grain: Buy <input type="number" min="0" value="0" data-city="' + city.name + '" data-res="grain" data-type="buy"> @ ' + city.grainBuy + 'g each</div>';
+            const doTrade = document.createElement('button');
+            doTrade.className = 'citybuilder-trade-close';
+            doTrade.textContent = 'Do trade with ' + city.name;
+            doTrade.style.marginTop = '0.5rem';
+            doTrade.addEventListener('click', () => {
+                const inputs = card.querySelectorAll('input[data-type="sell"]');
+                let g = gold;
+                let w = wood, s = stone, gr = grain;
+                inputs.forEach(inp => {
+                    const res = inp.dataset.res;
+                    const qty = parseInt(inp.value, 10) || 0;
+                    if (res === 'wood') { w -= qty; g += city.woodSell * qty; }
+                    if (res === 'stone') { s -= qty; g += city.stoneSell * qty; }
+                    if (res === 'grain') { gr -= qty; g += city.grainSell * qty; }
+                });
+                const buyInputs = card.querySelectorAll('input[data-type="buy"]');
+                buyInputs.forEach(inp => {
+                    const res = inp.dataset.res;
+                    const qty = parseInt(inp.value, 10) || 0;
+                    if (res === 'wood') { w += qty; g -= city.woodBuy * qty; }
+                    if (res === 'stone') { s += qty; g -= city.stoneBuy * qty; }
+                    if (res === 'grain') { gr += qty; g -= city.grainBuy * qty; }
+                });
+                if (w < 0 || s < 0 || gr < 0 || g < 0) {
+                    playSound(100, 0.2);
+                    return;
+                }
+                gold = g; wood = w; stone = s; grain = gr;
+                updateScore(gold);
+                playSound(600, 0.1);
+                tradeOverlayRef.remove();
+                tradeOverlayRef = null;
+            });
+            card.appendChild(doTrade);
+            modal.appendChild(card);
+        });
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'citybuilder-trade-close';
+        closeBtn.textContent = 'Close';
+        closeBtn.addEventListener('click', () => {
+            tradeOverlayRef.remove();
+            tradeOverlayRef = null;
+        });
+        modal.appendChild(closeBtn);
+        tradeOverlayRef.appendChild(modal);
+        tradeOverlayRef.addEventListener('click', (e) => { if (e.target === tradeOverlayRef) { tradeOverlayRef.remove(); tradeOverlayRef = null; } });
+        document.body.appendChild(tradeOverlayRef);
+    });
+    panel.appendChild(tradeBtn);
+
+    layout.appendChild(panel);
+    gameContainer.insertBefore(layout, touchControls);
+
+    function updatePanel() {
+        const gEl = document.getElementById('cbGold');
+        const wEl = document.getElementById('cbWood');
+        const sEl = document.getElementById('cbStone');
+        const grEl = document.getElementById('cbGrain');
+        if (gEl) gEl.textContent = gold;
+        if (wEl) wEl.textContent = wood;
+        if (sEl) sEl.textContent = stone;
+        if (grEl) grEl.textContent = grain;
+        ['road', 'house', 'farm', 'sawmill', 'quarry'].forEach(key => {
+            const btn = buildBtns[key];
+            if (btn) btn.disabled = gold < BUILD[key].cost;
+        });
+    }
+
+    function getCell(e) {
+        const coords = getEventCanvasCoords(e);
+        if (!coords || !canvas) return null;
+        const col = Math.floor(coords.x / CELL);
+        const row = Math.floor(coords.y / CELL);
+        if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+        return { row, col };
+    }
+
+    canvas.onclick = (e) => {
+        const cell = getCell(e);
+        if (!cell || selectedBuild === null) return;
+        const current = grid[cell.row][cell.col];
+        if (current !== '') return;
+        const b = BUILD[selectedBuild];
+        if (gold < b.cost) return;
+        grid[cell.row][cell.col] = selectedBuild;
+        gold -= b.cost;
+        updateScore(gold);
+        playSound(500, 0.08);
+    };
+
+    function draw() {
+        gameLoop = requestAnimationFrame(draw);
+        updatePanel();
+
+        const radius = 4;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const x = c * CELL;
+                const y = r * CELL;
+                const type = grid[r][c];
+                const color = type ? (BUILD[type] ? BUILD[type].color : '#9bc99b') : '#9bc99b';
+                ctx.fillStyle = color;
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, radius);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4);
+                }
+                if (type === 'road') {
+                    ctx.fillStyle = '#4b5563';
+                    ctx.fillRect(x + CELL * 0.2, y + CELL * 0.45, CELL * 0.6, CELL * 0.1);
+                    ctx.fillRect(x + CELL * 0.45, y + CELL * 0.2, CELL * 0.1, CELL * 0.6);
+                }
+                if (type && type !== 'road') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(x + 4, y + 4, CELL - 8, CELL - 8, radius - 1);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+    }
+
+    gameLoop = requestAnimationFrame(draw);
+
+    cleanupFunctions.push(() => {
+        gameContainer.classList.remove('citybuilder-active');
+        if (scoreLabel) scoreLabel.textContent = 'SCORE: ';
+        layout.remove();
+        gameContainer.insertBefore(canvas, touchControls);
+        if (tradeOverlayRef && tradeOverlayRef.parentNode) tradeOverlayRef.remove();
+        canvas.onclick = null;
+    });
 }
 
 // Game Creator System Removed for Security
