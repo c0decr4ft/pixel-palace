@@ -23,7 +23,12 @@ let score = 0;
 let cleanupFunctions = [];
 
 // Sound Effects (Web Audio API)
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let audioCtx = null;
+try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+} catch (e) {
+    console.warn('PIXEL PALACE: Web Audio not available.', e);
+}
 
 // Arcade background music (simple chiptune loop)
 let arcadeMusicOsc = null;
@@ -50,20 +55,24 @@ function stopArcadeMusic() {
 }
 function scheduleArcadeMusicStep(stepIndex) {
     if (!arcadeMusicGain || !gameContainer || !gameContainer.classList.contains('active')) return;
+    if (!audioCtx || audioCtx.state === 'closed') return;
     const [freq, dur] = ARCADE_MELODY[stepIndex % ARCADE_MELODY.length];
     const next = (stepIndex + 1) % ARCADE_MELODY.length;
     arcadeMusicTimeout = setTimeout(() => {
         scheduleArcadeMusicStep(next);
     }, (dur + 0.02) * 1000);
     if (freq > 0 && arcadeMusicOsc) {
-        arcadeMusicOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        arcadeMusicGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-        arcadeMusicGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        try {
+            const t = audioCtx.currentTime;
+            arcadeMusicOsc.frequency.setValueAtTime(freq, t);
+            arcadeMusicGain.gain.setValueAtTime(0.06, t);
+            arcadeMusicGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        } catch (e) {}
     }
 }
 function startArcadeMusic() {
     stopArcadeMusic();
-    if (audioCtx.state === 'suspended') return;
+    if (!audioCtx || audioCtx.state === 'suspended' || audioCtx.state === 'closed') return;
     arcadeMusicOsc = audioCtx.createOscillator();
     arcadeMusicOsc.type = 'square';
     arcadeMusicGain = audioCtx.createGain();
@@ -75,19 +84,19 @@ function startArcadeMusic() {
 }
 
 function playSound(frequency, duration, type = 'square') {
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    
-    oscillator.frequency.value = frequency;
-    oscillator.type = type;
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-    
-    oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + duration);
+    if (!audioCtx || audioCtx.state === 'closed') return;
+    try {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.frequency.value = frequency;
+        oscillator.type = type;
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + duration);
+    } catch (err) {}
 }
 
 // Category Filter
@@ -122,8 +131,7 @@ document.querySelectorAll('.play-btn').forEach(btn => {
 // Prevent cabinet clicks from doing anything
 document.querySelectorAll('.game-cabinet').forEach(cabinet => {
     cabinet.addEventListener('click', (e) => {
-        // Only allow clicks on the play button
-        if (!e.target.classList.contains('play-btn')) {
+        if (!e.target || !e.target.classList || !e.target.classList.contains('play-btn')) {
             e.stopPropagation();
         }
     });
@@ -172,8 +180,10 @@ function startGame(gameName) {
     
     if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
     
-    if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic());
-    else startArcadeMusic();
+    if (audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic()).catch(() => {});
+        else startArcadeMusic();
+    }
     
     // Show the name of the game you're playing in the header
     if (currentGameTitle) {
@@ -208,6 +218,12 @@ function startGame(gameName) {
         case '2048':
             init2048();
             break;
+        default:
+            console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
+            lobby.style.display = 'block';
+            gameContainer.classList.remove('active');
+            stopArcadeMusic();
+            return;
     }
 }
 
@@ -274,6 +290,7 @@ function getEventCanvasCoords(e) {
     const t = e.touches && e.touches.length ? e.touches[0] : e.changedTouches && e.changedTouches.length ? e.changedTouches[0] : e;
     if (!t || !canvas) return null;
     const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return { x: (t.clientX - rect.left) * scaleX, y: (t.clientY - rect.top) * scaleY };
@@ -293,11 +310,6 @@ function addTouchDpad(options) {
     touchControls.innerHTML = '';
     const wrap = document.createElement('div');
     wrap.className = 'touch-dpad-wrap';
-    wrap.style.display = 'flex';
-    wrap.style.alignItems = 'center';
-    wrap.style.gap = '1rem';
-    wrap.style.justifyContent = 'center';
-    wrap.style.flexWrap = 'wrap';
 
     const makeBtn = (label, handler) => {
         const btn = document.createElement('button');
@@ -377,10 +389,16 @@ function initSnake() {
     let gameOver = false;
     
     function spawnFood() {
-        return {
-            x: Math.floor(Math.random() * tileCount),
-            y: Math.floor(Math.random() * tileCount)
-        };
+        let x, y;
+        for (let tries = 0; tries < 50; tries++) {
+            x = Math.floor(Math.random() * tileCount);
+            y = Math.floor(Math.random() * tileCount);
+            if (!snake.some(s => s.x === x && s.y === y)) return { x, y };
+        }
+        for (let yy = 0; yy < tileCount; yy++)
+            for (let xx = 0; xx < tileCount; xx++)
+                if (!snake.some(s => s.x === xx && s.y === yy)) return { x: xx, y: yy };
+        return { x: 0, y: 0 };
     }
     
     handleKeyDown = (e) => {
@@ -1354,9 +1372,9 @@ function initTron() {
         function aiChooseDir(cycle) {
             const perp = [(cycle.dir + 1) % 4, (cycle.dir + 3) % 4];
             const options = [cycle.dir, perp[0], perp[1]];
-            const valid = options.filter(d => valid(nextCell(cycle.x, cycle.y, d)));
-            if (valid.length === 0) return cycle.dir;
-            const withSpace = valid.map(d => ({ d, space: stepsUntilCrash(cycle.x, cycle.y, d) }));
+            const validDirs = options.filter(d => valid(nextCell(cycle.x, cycle.y, d)));
+            if (validDirs.length === 0) return cycle.dir;
+            const withSpace = validDirs.map(d => ({ d, space: stepsUntilCrash(cycle.x, cycle.y, d) }));
             withSpace.sort((a, b) => b.space - a.space);
             const best = withSpace[0].space;
             const good = withSpace.filter(w => w.space >= Math.max(1, best - 8));
@@ -1735,6 +1753,7 @@ function initBreakout() {
     
     function setPaddleFromClientX(clientX) {
         const rect = canvas.getBoundingClientRect();
+        if (!rect.width) return;
         const scaleX = canvas.width / rect.width;
         const canvasX = (clientX - rect.left) * scaleX;
         paddleX = Math.max(0, Math.min(canvas.width - paddleWidth, canvasX - paddleWidth / 2));
@@ -2186,6 +2205,7 @@ function initMemory() {
         if (!canClick) return;
         const coords = e.touches ? getEventCanvasCoords(e) : (() => {
             const rect = canvas.getBoundingClientRect();
+            if (!rect.width || !rect.height) return null;
             return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
         })();
         if (!coords) return;
