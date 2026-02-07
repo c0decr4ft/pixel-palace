@@ -813,8 +813,8 @@ function initTetris() {
 }
 
 // === PONG GAME ===
-const PONG_W = 600;
-const PONG_H = 400;
+const PONG_W = 800;
+const PONG_H = 500;
 const PADDLE_W = 15;
 const PADDLE_H = 80;
 const BALL_SIZE = 15;
