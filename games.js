@@ -1191,7 +1191,7 @@ const TRON_W = TRON_COLS * TRON_CELL;
 const TRON_H = TRON_ROWS * TRON_CELL;
 const TRON_TRAIL_PAD = 3;
 const TRON_BIKE_PAD = 1;
-const TRON_MOVE_MS = 120;
+const TRON_MOVE_MS = 95;
 const TRON_DX = [0, 1, 0, -1];
 const TRON_DY = [-1, 0, 1, 0];
 
@@ -1284,35 +1284,35 @@ function initTron() {
                 return;
             }
             if (nextDir !== null && canTurn(playerDir, nextDir)) playerDir = nextDir;
-            if (now - lastMove < TRON_MOVE_MS) {
-                drawTronGrid(grid, p1, p2, 1, 2);
-                return;
-            }
-            lastMove = now;
-            p1.dir = playerDir;
-            p2.dir = aiChooseDir(p2);
-            const moveOrder = p1.y < p2.y ? [p1, p2] : [p2, p1];
-            for (const cycle of moveOrder) {
-                if (!cycle.alive) continue;
-                const trailVal = cycle === p1 ? 1 : 2;
-                const n = nextCell(cycle.x, cycle.y, cycle.dir);
-                if (!valid(n)) {
-                    cycle.alive = false;
-                    continue;
+            if (now - lastMove >= TRON_MOVE_MS) {
+                lastMove = now;
+                p1.dir = playerDir;
+                p2.dir = aiChooseDir(p2);
+                const moveOrder = p1.y < p2.y ? [p1, p2] : [p2, p1];
+                for (const cycle of moveOrder) {
+                    if (!cycle.alive) continue;
+                    const trailVal = cycle === p1 ? 1 : 2;
+                    const n = nextCell(cycle.x, cycle.y, cycle.dir);
+                    if (!valid(n)) {
+                        cycle.alive = false;
+                        continue;
+                    }
+                    grid[cycle.y][cycle.x] = trailVal;
+                    cycle.x = n.x;
+                    cycle.y = n.y;
                 }
-                grid[cycle.y][cycle.x] = trailVal;
-                cycle.x = n.x;
-                cycle.y = n.y;
+                if (!p1.alive || !p2.alive) {
+                    gameOver = true;
+                    winner = p1.alive ? 1 : 2;
+                    if (winner === 1) updateScore(1);
+                    playSound(winner === 1 ? 800 : 200, 0.2);
+                }
             }
-            if (!p1.alive || !p2.alive) {
-                gameOver = true;
-                winner = p1.alive ? 1 : 2;
-                if (winner === 1) updateScore(1);
-                playSound(winner === 1 ? 800 : 200, 0.2);
-            }
-            drawTronGrid(grid, p1, p2, 1, 2);
+            const interp = Math.min(1, (now - lastMove) / TRON_MOVE_MS);
+            drawTronGrid(grid, p1, p2, 1, 2, interp);
         }
-        function drawTronGrid(grid, c1, c2, trail1, trail2) {
+        function drawTronGrid(grid, c1, c2, trail1, trail2, interp) {
+            interp = interp || 0;
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, TRON_W, TRON_H);
             const trailSize = TRON_CELL - TRON_TRAIL_PAD * 2;
@@ -1330,17 +1330,21 @@ function initTron() {
                 }
             }
             if (c1.alive) {
+                const dx = (c1.x + TRON_DX[c1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
+                const dy = (c1.y + TRON_DY[c1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = 8;
-                ctx.fillRect(c1.x*TRON_CELL+TRON_BIKE_PAD, c1.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
+                ctx.fillRect(dx, dy, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
             if (c2.alive) {
+                const dx = (c2.x + TRON_DX[c2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
+                const dy = (c2.y + TRON_DY[c2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#ff00ff';
                 ctx.shadowColor = '#ff00ff';
                 ctx.shadowBlur = 8;
-                ctx.fillRect(c2.x*TRON_CELL+TRON_BIKE_PAD, c2.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
+                ctx.fillRect(dx, dy, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
         }
@@ -1527,6 +1531,7 @@ function initTron() {
                 ctx.fillText(winner === me ? 'YOU WIN' : 'YOU LOSE', TRON_W/2, TRON_H/2 - 10);
                 return;
             }
+            const interp = isHost ? Math.min(1, (now - lastMove) / TRON_MOVE_MS) : 0;
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, TRON_W, TRON_H);
             const trailSize = TRON_CELL - TRON_TRAIL_PAD * 2;
@@ -1544,17 +1549,21 @@ function initTron() {
                 }
             }
             if (p1.alive) {
+                const dx = (p1.x + TRON_DX[p1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
+                const dy = (p1.y + TRON_DY[p1.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = 6;
-                ctx.fillRect(p1.x*TRON_CELL+TRON_BIKE_PAD, p1.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
+                ctx.fillRect(dx, dy, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
             if (p2.alive) {
+                const dx = (p2.x + TRON_DX[p2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
+                const dy = (p2.y + TRON_DY[p2.dir] * interp) * TRON_CELL + TRON_BIKE_PAD;
                 ctx.fillStyle = '#ff00ff';
                 ctx.shadowColor = '#ff00ff';
                 ctx.shadowBlur = 6;
-                ctx.fillRect(p2.x*TRON_CELL+TRON_BIKE_PAD, p2.y*TRON_CELL+TRON_BIKE_PAD, bikeSize, bikeSize);
+                ctx.fillRect(dx, dy, bikeSize, bikeSize);
                 ctx.shadowBlur = 0;
             }
         }
