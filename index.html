@@ -168,8 +168,10 @@
             <div class="game-title" id="currentGameTitle">GAME</div>
             <div class="score-display">SCORE: <span id="scoreValue">0</span></div>
         </div>
-        <canvas id="gameCanvas"></canvas>
-        <div id="touchControls" class="touch-controls" aria-hidden="true"></div>
+        <div class="game-play-area">
+            <canvas id="gameCanvas"></canvas>
+            <div id="touchControls" class="touch-controls" aria-hidden="true"></div>
+        </div>
         <div class="game-controls" id="gameControls"></div>
     </div>
 
@@ -180,6 +182,16 @@
         <div class="credits">
             <span>CREATED BY</span>
             <a href="https://github.com/c0decr4ft" target="_blank" rel="noopener noreferrer" class="creator-name">c0decr4ft</a>
+        </div>
+        <div class="footer-audio-controls" aria-label="Sound settings">
+            <button type="button" class="audio-toggle" id="sfxToggle" title="Sound effects (beeps, bounces)">
+                <span class="audio-toggle-icon" aria-hidden="true">🔊</span>
+                <span class="audio-toggle-label">SFX</span>
+            </button>
+            <button type="button" class="audio-toggle" id="musicToggle" title="Arcade background music">
+                <span class="audio-toggle-icon" aria-hidden="true">🎵</span>
+                <span class="audio-toggle-label">Music</span>
+            </button>
         </div>
     </footer>
 

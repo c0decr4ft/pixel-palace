@@ -701,6 +701,12 @@ body {
     text-shadow: 0 0 10px var(--gold);
 }
 
+.game-play-area #gameCanvas {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+}
+
 #gameCanvas {
     background: #000;
     border: 4px solid var(--neon-cyan);
@@ -723,6 +729,19 @@ body {
     align-self: center;
 }
 
+.game-play-area {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
 .game-controls {
     margin-top: 0.25rem;
     padding: 0.25rem;
@@ -733,13 +752,11 @@ body {
     flex-shrink: 0;
 }
 
-/* Touch controls: show on touch devices and small screens; prevent text selection on arrows */
+/* Touch controls: always on the right of the game canvas, not underneath */
 .touch-controls {
     display: none;
     position: relative;
     flex-shrink: 0;
-    left: 0;
-    right: 0;
     padding: 0.5rem;
     justify-content: center;
     align-items: center;
@@ -1190,6 +1207,56 @@ body {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+}
+
+/* Footer: SFX and Music toggles (under credits) */
+.footer-audio-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.75rem 1rem 1rem;
+    flex-wrap: wrap;
+}
+
+.audio-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(0, 255, 255, 0.1);
+    border: 2px solid var(--neon-cyan);
+    border-radius: 8px;
+    color: var(--neon-cyan);
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.45rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: box-shadow 0.2s, background 0.2s;
+}
+
+.audio-toggle:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+}
+
+.audio-toggle.muted {
+    opacity: 0.5;
+    border-color: #555;
+    color: #888;
+}
+
+.audio-toggle.muted:hover {
+    opacity: 0.7;
+}
+
+.audio-toggle-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.audio-toggle-label {
+    letter-spacing: 0.05em;
 }
 
 /* === RESPONSIVE === */

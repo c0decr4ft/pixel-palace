@@ -30,6 +30,16 @@ try {
     console.warn('PIXEL PALACE: Web Audio not available.', e);
 }
 
+// SFX and Music toggles (persisted in localStorage)
+const STORAGE_SFX = 'pixelpalace_sfx';
+const STORAGE_MUSIC = 'pixelpalace_music';
+let soundEffectsEnabled = true;
+let arcadeMusicEnabled = true;
+try {
+    if (localStorage.getItem(STORAGE_SFX) === '0') soundEffectsEnabled = false;
+    if (localStorage.getItem(STORAGE_MUSIC) === '0') arcadeMusicEnabled = false;
+} catch (e) {}
+
 // Arcade background music (simple chiptune loop)
 let arcadeMusicOsc = null;
 let arcadeMusicGain = null;
@@ -72,7 +82,7 @@ function scheduleArcadeMusicStep(stepIndex) {
 }
 function startArcadeMusic() {
     stopArcadeMusic();
-    if (!audioCtx || audioCtx.state === 'suspended' || audioCtx.state === 'closed') return;
+    if (!arcadeMusicEnabled || !audioCtx || audioCtx.state === 'suspended' || audioCtx.state === 'closed') return;
     arcadeMusicOsc = audioCtx.createOscillator();
     arcadeMusicOsc.type = 'square';
     arcadeMusicGain = audioCtx.createGain();
@@ -84,7 +94,7 @@ function startArcadeMusic() {
 }
 
 function playSound(frequency, duration, type = 'square') {
-    if (!audioCtx || audioCtx.state === 'closed') return;
+    if (!soundEffectsEnabled || !audioCtx || audioCtx.state === 'closed') return;
     try {
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
@@ -146,6 +156,36 @@ if (backBtn) {
     });
 }
 
+// Footer SFX and Music toggles (under credits on main homepage)
+const sfxToggle = document.getElementById('sfxToggle');
+const musicToggle = document.getElementById('musicToggle');
+function updateAudioToggleUI() {
+    if (sfxToggle) {
+        sfxToggle.classList.toggle('muted', !soundEffectsEnabled);
+        sfxToggle.title = soundEffectsEnabled ? 'Sound effects: ON (click to turn off)' : 'Sound effects: OFF (click to turn on)';
+    }
+    if (musicToggle) {
+        musicToggle.classList.toggle('muted', !arcadeMusicEnabled);
+        musicToggle.title = arcadeMusicEnabled ? 'Arcade music: ON (click to turn off)' : 'Arcade music: OFF (click to turn on)';
+    }
+}
+if (sfxToggle) {
+    sfxToggle.addEventListener('click', () => {
+        soundEffectsEnabled = !soundEffectsEnabled;
+        try { localStorage.setItem(STORAGE_SFX, soundEffectsEnabled ? '1' : '0'); } catch (e) {}
+        updateAudioToggleUI();
+    });
+}
+if (musicToggle) {
+    musicToggle.addEventListener('click', () => {
+        arcadeMusicEnabled = !arcadeMusicEnabled;
+        try { localStorage.setItem(STORAGE_MUSIC, arcadeMusicEnabled ? '1' : '0'); } catch (e) {}
+        updateAudioToggleUI();
+        if (!arcadeMusicEnabled) stopArcadeMusic();
+    });
+}
+updateAudioToggleUI();
+
 // Prevent arrow keys and game keys from scrolling/selecting text when a game is active (stops phone from "copy" popup)
 const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'];
 function preventGameKeyDefault(e) {
@@ -180,7 +220,7 @@ function startGame(gameName) {
     
     if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
     
-    if (audioCtx) {
+    if (audioCtx && arcadeMusicEnabled) {
         if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic()).catch(() => {});
         else startArcadeMusic();
     }
@@ -1273,8 +1313,14 @@ function initPong() {
         modeOverlay.remove();
         rotateOverlay.remove();
         pongGameArea.remove();
-        gameContainer.insertBefore(canvas, gameControls);
-        gameContainer.insertBefore(touchControls, gameControls);
+        const playArea = gameContainer.querySelector('.game-play-area');
+        if (playArea) {
+            playArea.appendChild(canvas);
+            playArea.appendChild(touchControls);
+        } else {
+            gameContainer.insertBefore(canvas, gameControls);
+            gameContainer.insertBefore(touchControls, gameControls);
+        }
         window.removeEventListener('orientationchange', checkPongOrientation);
         window.removeEventListener('resize', checkPongOrientation);
     });
