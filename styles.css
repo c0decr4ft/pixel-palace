@@ -875,17 +875,17 @@ body {
     color: #888 !important;
 }
 
-/* Pong: game area wrapper (default: column stack) */
+/* Pong: game area wrapper – let the canvas be big and visible */
 .pong-game-area {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
-    flex: 1;
+    gap: 0.5rem;
+    flex: 1 1 auto;
     min-height: 0;
     width: 100%;
-    max-width: 900px;
+    max-width: 100%;
 }
 
 /* Pong: landscape — game and controls side by side */
@@ -896,8 +896,10 @@ body {
 .pong-game-area #gameCanvas {
     flex: 1;
     min-width: 0;
-    max-height: min(70vh, calc(100vh - 220px));
-    max-height: min(70dvh, calc(100dvh - 220px));
+    min-height: 300px;
+    max-height: min(90vh, calc(100vh - 120px));
+    max-height: min(90dvh, calc(100dvh - 120px));
+    object-fit: contain;
 }
 
 .pong-game-area .touch-controls {

@@ -422,13 +422,13 @@ function initSnake() {
     currentGameTitle.textContent = 'SNAKE';
     gameControls.innerHTML = 'Arrow Keys or WASD to move';
     
-    canvas.width = 400;
-    canvas.height = 400;
+    canvas.width = 360;
+    canvas.height = 360;
     
     const gridSize = 20;
     const tileCount = canvas.width / gridSize;
     
-    let snake = [{x: 10, y: 10}];
+    let snake = [{x: 9, y: 9}];
     let direction = {x: 0, y: 0};
     let food = spawnFood();
     let gameOver = false;
@@ -480,7 +480,7 @@ function initSnake() {
     });
     
     let lastTime = 0;
-    const gameSpeed = 100;
+    const gameSpeed = 150;
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
@@ -796,9 +796,9 @@ function initTetris() {
             return;
         }
         
-        // Drop piece
-        if (currentTime - lastTime > dropInterval) {
-            lastTime = currentTime;
+        // Drop piece (fixed interval so speed doesn't vary with frame rate)
+        if (currentTime - lastTime >= dropInterval) {
+            lastTime += dropInterval;
             if (!collision(0, 1)) {
                 pieceY++;
             } else {
@@ -813,12 +813,12 @@ function initTetris() {
 }
 
 // === PONG GAME ===
-const PONG_W = 800;
-const PONG_H = 500;
-const PADDLE_W = 15;
-const PADDLE_H = 80;
-const BALL_SIZE = 15;
-const PADDLE_SPEED = 280;
+const PONG_W = 960;
+const PONG_H = 600;
+const PADDLE_W = 18;
+const PADDLE_H = 100;
+const BALL_SIZE = 18;
+const PADDLE_SPEED = 320;
 const BALL_SPEED_BASE = 300;
 const PONG_SCORE_TO_WIN = 11;
 
@@ -848,6 +848,13 @@ function initPong() {
         onUp: (p) => { touchKeys['ArrowUp'] = p; },
         onDown: (p) => { touchKeys['ArrowDown'] = p; }
     });
+    
+    function clearPongKeys() {
+        keys['ArrowUp'] = false; keys['ArrowDown'] = false;
+        keys['w'] = false; keys['W'] = false; keys['s'] = false; keys['S'] = false;
+        touchKeys['ArrowUp'] = false; touchKeys['ArrowDown'] = false;
+    }
+    window.addEventListener('blur', clearPongKeys);
     
     const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
     const isPortrait = () => window.innerWidth < window.innerHeight;
@@ -1331,6 +1338,7 @@ function initPong() {
     }
     
     cleanupFunctions.push(() => {
+        window.removeEventListener('blur', clearPongKeys);
         gameContainer.classList.remove('pong-landscape-layout');
         modeOverlay.remove();
         rotateOverlay.remove();
@@ -1387,6 +1395,11 @@ function initTron() {
         onLeft: (p) => { if (p) nextDir = 3; },
         onRight: (p) => { if (p) nextDir = 1; }
     });
+    function clearTronKeys() {
+        keys['ArrowUp'] = keys['ArrowDown'] = keys['ArrowLeft'] = keys['ArrowRight'] = false;
+        keys['Shift'] = keys['w'] = keys['W'] = keys['a'] = keys['A'] = keys['s'] = keys['S'] = keys['d'] = keys['D'] = false;
+    }
+    window.addEventListener('blur', clearTronKeys);
     gameContainer.querySelectorAll('.pong-mode-overlay').forEach(el => el.remove());
     const modeOverlay = document.createElement('div');
     modeOverlay.className = 'pong-mode-overlay';
@@ -1407,7 +1420,7 @@ function initTron() {
     modeBtns.appendChild(btnAI);
     modeBtns.appendChild(btnOnline);
     gameContainer.appendChild(modeOverlay);
-    cleanupFunctions.push(() => { modeOverlay.remove(); });
+    cleanupFunctions.push(() => { modeOverlay.remove(); window.removeEventListener('blur', clearTronKeys); });
 
     function startTronAI() {
         let grid = Array(TRON_ROWS).fill(0).map(() => Array(TRON_COLS).fill(0));
@@ -1470,8 +1483,11 @@ function initTron() {
             }
             if (nextDir !== null && canTurn(playerDir, nextDir)) playerDir = nextDir;
             const moveMs = keys['Shift'] ? TRON_MOVE_MS_BOOST : TRON_MOVE_MS;
-            if (now - lastMove >= moveMs) {
+            const MAX_MOVES_PER_FRAME = 3;
+            let moveSteps = 0;
+            while (!gameOver && (now - lastMove) >= moveMs && moveSteps < MAX_MOVES_PER_FRAME) {
                 lastMove += moveMs;
+                moveSteps++;
                 p1.dir = playerDir;
                 p2.dir = aiChooseDir(p2);
                 const moveOrder = p1.y < p2.y ? [p1, p2] : [p2, p1];
@@ -1686,10 +1702,13 @@ function initTron() {
             if (isHost) {
                 const cycle1 = p1;
                 const cycle2 = p2;
-                cycle1.dir = myDir;
-                cycle2.dir = remoteDir;
-                if (now - lastMove >= TRON_MOVE_MS) {
+                const MAX_MOVES_PER_FRAME = 3;
+                let moveSteps = 0;
+                while (!gameOver && (now - lastMove) >= TRON_MOVE_MS && moveSteps < MAX_MOVES_PER_FRAME) {
                     lastMove += TRON_MOVE_MS;
+                    moveSteps++;
+                    cycle1.dir = myDir;
+                    cycle2.dir = remoteDir;
                     for (const cycle of [cycle1, cycle2]) {
                         if (!cycle.alive) continue;
                         const n = nextCell(cycle.x, cycle.y, cycle.dir);
@@ -1822,6 +1841,8 @@ function initBreakout() {
     handleKeyUp = (e) => { keys[e.key] = false; };
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
+    function clearBreakoutKeys() { keys['ArrowLeft'] = false; keys['ArrowRight'] = false; }
+    window.addEventListener('blur', clearBreakoutKeys);
     
     function setPaddleFromClientX(clientX) {
         const rect = canvas.getBoundingClientRect();
@@ -1994,6 +2015,7 @@ function initBreakout() {
     }
     
     gameLoop = requestAnimationFrame(update);
+    cleanupFunctions.push(() => { window.removeEventListener('blur', clearBreakoutKeys); });
 }
 
 // === SPACE INVADERS ===
@@ -2001,18 +2023,18 @@ function initSpaceInvaders() {
     currentGameTitle.textContent = 'SPACE INVADERS';
     gameControls.innerHTML = '← → Move | SPACE Shoot';
     
-    canvas.width = 600;
-    canvas.height = 500;
+    canvas.width = 560;
+    canvas.height = 440;
     
-    const playerWidth = 50;
-    const playerHeight = 30;
+    const playerWidth = 44;
+    const playerHeight = 26;
     let playerX = canvas.width / 2 - playerWidth / 2;
     
     const invaderRows = 4;
     const invaderCols = 8;
-    const invaderWidth = 40;
-    const invaderHeight = 30;
-    const invaderPadding = 15;
+    const invaderWidth = 36;
+    const invaderHeight = 26;
+    const invaderPadding = 12;
     
     let invaders = [];
     let invaderDirection = 1;
@@ -2022,13 +2044,15 @@ function initSpaceInvaders() {
     let gameOver = false;
     let win = false;
     
-    // Initialize invaders
+    const INVADER_COLORS = ['#ff4444', '#ffaa00', '#00ff88', '#00ccff'];
+    
     for (let r = 0; r < invaderRows; r++) {
         for (let c = 0; c < invaderCols; c++) {
             invaders.push({
-                x: c * (invaderWidth + invaderPadding) + 50,
-                y: r * (invaderHeight + invaderPadding) + 50,
-                alive: true
+                x: c * (invaderWidth + invaderPadding) + 44,
+                y: r * (invaderHeight + invaderPadding) + 40,
+                alive: true,
+                row: r
             });
         }
     }
@@ -2037,7 +2061,7 @@ function initSpaceInvaders() {
     
     function doFire() {
         if (!gameOver && !win) {
-            bullets.push({ x: playerX + playerWidth / 2, y: canvas.height - 60 });
+            bullets.push({ x: playerX + playerWidth / 2, y: canvas.height - 52 });
             playSound(400, 0.1);
         }
     }
@@ -2063,78 +2087,92 @@ function initSpaceInvaders() {
         onAction: doFire,
         actionLabel: 'FIRE'
     });
+    function clearSpaceKeys() {
+        keys['ArrowLeft'] = keys['ArrowRight'] = keys[' '] = false;
+        touchKeys['ArrowLeft'] = touchKeys['ArrowRight'] = false;
+    }
+    window.addEventListener('blur', clearSpaceKeys);
     
     let lastEnemyShot = 0;
     let lastTime = performance.now();
     const PLAYER_SPEED = 360;
     const BULLET_SPEED = 480;
     const ENEMY_BULLET_SPEED = 300;
+    const STEP_DT = 1/60;
+    const MAX_STEPS = 5;
+    let accum = 0;
+    let enemyShotAccum = 0;
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
         
         let dt = (currentTime - lastTime) / 1000;
         lastTime = currentTime;
-        if (dt > 0.1) dt = 1/60;
-        const scale = Math.min(dt * 60, 3);
+        if (dt > 0.1) dt = STEP_DT;
         
         if (!gameOver && !win) {
-            // Player movement (delta-time)
+            // Player movement (delta-time for responsiveness)
             if (keys['ArrowLeft'] || touchKeys['ArrowLeft']) playerX = Math.max(0, playerX - PLAYER_SPEED * dt);
             if (keys['ArrowRight'] || touchKeys['ArrowRight']) playerX = Math.min(canvas.width - playerWidth, playerX + PLAYER_SPEED * dt);
             
-            // Move invaders
-            let moveDown = false;
             let aliveInvaders = invaders.filter(inv => inv.alive);
-            
             if (aliveInvaders.length === 0) {
                 win = true;
                 playSound(1000, 0.5);
             }
             
-            for (let inv of aliveInvaders) {
-                if ((inv.x <= 0 && invaderDirection < 0) || 
-                    (inv.x >= canvas.width - invaderWidth && invaderDirection > 0)) {
-                    moveDown = true;
-                    break;
-                }
-            }
-            
-            if (moveDown) {
-                invaderDirection = -invaderDirection;
-                for (let inv of invaders) {
-                    inv.y += 20;
-                    if (inv.alive && inv.y > canvas.height - 100) {
-                        gameOver = true;
-                        playSound(100, 0.5);
+            // Fixed timestep for invaders, bullets, enemy bullets (smooth speed)
+            accum += dt;
+            enemyShotAccum += dt;
+            let steps = 0;
+            while (accum >= STEP_DT && steps < MAX_STEPS) {
+                accum -= STEP_DT;
+                steps++;
+                
+                // Move invaders one fixed step
+                let moveDown = false;
+                for (let inv of aliveInvaders) {
+                    if ((inv.x <= 0 && invaderDirection < 0) || 
+                        (inv.x >= canvas.width - invaderWidth && invaderDirection > 0)) {
+                        moveDown = true;
+                        break;
                     }
                 }
-            } else {
-                const invaderMove = invaderSpeed * scale;
-                for (let inv of invaders) {
-                    inv.x += invaderDirection * invaderMove;
+                if (moveDown) {
+                    invaderDirection = -invaderDirection;
+                    for (let inv of invaders) {
+                        inv.y += 20;
+                        if (inv.alive && inv.y > canvas.height - 88) {
+                            gameOver = true;
+                            playSound(100, 0.5);
+                        }
+                    }
+                } else {
+                    for (let inv of invaders) {
+                        inv.x += invaderDirection * invaderSpeed;
+                    }
                 }
+                
+                // Move bullets
+                const bulletMove = BULLET_SPEED * STEP_DT;
+                bullets = bullets.filter(b => {
+                    b.y -= bulletMove;
+                    return b.y > 0;
+                });
+                
+                const enemyBulletMove = ENEMY_BULLET_SPEED * STEP_DT;
+                enemyBullets = enemyBullets.filter(b => {
+                    b.y += enemyBulletMove;
+                    return b.y < canvas.height;
+                });
             }
             
-            // Move bullets (delta-time)
-            const bulletMove = BULLET_SPEED * dt;
-            bullets = bullets.filter(b => {
-                b.y -= bulletMove;
-                return b.y > 0;
-            });
-            
-            // Enemy shooting
-            if (currentTime - lastEnemyShot > 1500 && aliveInvaders.length > 0) {
+            // Enemy shooting (fixed interval)
+            if (enemyShotAccum >= 1.5 && aliveInvaders.length > 0) {
+                enemyShotAccum = 0;
                 const shooter = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
                 enemyBullets.push({ x: shooter.x + invaderWidth / 2, y: shooter.y + invaderHeight });
-                lastEnemyShot = currentTime;
             }
-            
-            const enemyBulletMove = ENEMY_BULLET_SPEED * dt;
-            enemyBullets = enemyBullets.filter(b => {
-                b.y += enemyBulletMove;
-                return b.y < canvas.height;
-            });
             
             // Bullet-invader collision
             for (let bullet of bullets) {
@@ -2153,7 +2191,7 @@ function initSpaceInvaders() {
             // Enemy bullet-player collision
             for (let bullet of enemyBullets) {
                 if (bullet.x >= playerX && bullet.x <= playerX + playerWidth &&
-                    bullet.y >= canvas.height - 50 && bullet.y <= canvas.height - 20) {
+                    bullet.y >= canvas.height - 46 && bullet.y <= canvas.height - 18) {
                     gameOver = true;
                     playSound(100, 0.5);
                 }
@@ -2161,85 +2199,125 @@ function initSpaceInvaders() {
         }
         
         // Draw
-        ctx.fillStyle = '#000';
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        bgGrad.addColorStop(0, '#050510');
+        bgGrad.addColorStop(0.6, '#0a0a1a');
+        bgGrad.addColorStop(1, '#0d0d25');
+        ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Stars
-        ctx.fillStyle = '#333';
-        for (let i = 0; i < 50; i++) {
-            ctx.fillRect(
-                (i * 73) % canvas.width,
-                (i * 97 + currentTime * 0.01) % canvas.height,
-                2, 2
-            );
+        // Starfield - two layers
+        const t = currentTime * 0.002;
+        for (let i = 0; i < 60; i++) {
+            const x = (i * 73) % canvas.width;
+            const y = (i * 97 + Math.floor(t + i) % 100) % (canvas.height - 50);
+            const bright = 0.2 + (i % 4) * 0.2;
+            ctx.fillStyle = `rgba(200,220,255,${bright})`;
+            ctx.fillRect(x, y, 1, 1);
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        for (let i = 0; i < 25; i++) {
+            ctx.fillRect((i * 113) % canvas.width, (i * 67) % (canvas.height - 50), 2, 2);
         }
         
-        // Draw invaders
+        // Ground line (base)
+        const baseY = canvas.height - 22;
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(0, baseY);
+        ctx.lineTo(canvas.width, baseY);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        // Draw invaders - classic pixel look with row colors
         for (let inv of invaders) {
             if (inv.alive) {
-                ctx.fillStyle = '#00ff00';
-                ctx.shadowColor = '#00ff00';
-                ctx.shadowBlur = 4;
-                ctx.fillRect(inv.x + 5, inv.y, invaderWidth - 10, invaderHeight - 10);
-                ctx.fillRect(inv.x, inv.y + 10, invaderWidth, invaderHeight - 15);
-                ctx.fillRect(inv.x + 5, inv.y + invaderHeight - 10, 10, 10);
-                ctx.fillRect(inv.x + invaderWidth - 15, inv.y + invaderHeight - 10, 10, 10);
+                const color = INVADER_COLORS[inv.row % INVADER_COLORS.length];
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 8;
+                const w = invaderWidth - 8;
+                const h = invaderHeight - 8;
+                const cx = inv.x + invaderWidth / 2;
+                ctx.fillRect(inv.x + 4, inv.y + 4, w, h);
+                ctx.fillRect(inv.x, inv.y + 12, 6, 10);
+                ctx.fillRect(inv.x + invaderWidth - 6, inv.y + 12, 6, 10);
+                ctx.fillRect(inv.x + 10, inv.y + invaderHeight - 6, 8, 4);
+                ctx.fillRect(inv.x + invaderWidth - 18, inv.y + invaderHeight - 6, 8, 4);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillRect(inv.x + 8, inv.y + 6, 6, 4);
             }
         }
         ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
         
+        // Player ship - neon style
+        const shipY = canvas.height - 24;
         ctx.fillStyle = '#00ffff';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 12;
         ctx.shadowColor = '#00ffff';
         ctx.beginPath();
-        ctx.moveTo(playerX + playerWidth / 2, canvas.height - 50);
-        ctx.lineTo(playerX, canvas.height - 20);
-        ctx.lineTo(playerX + playerWidth, canvas.height - 20);
+        ctx.moveTo(playerX + playerWidth / 2, shipY - 22);
+        ctx.lineTo(playerX + 4, shipY);
+        ctx.lineTo(playerX + playerWidth / 2 - 6, shipY - 8);
+        ctx.lineTo(playerX + playerWidth / 2, shipY);
+        ctx.lineTo(playerX + playerWidth / 2 + 6, shipY - 8);
+        ctx.lineTo(playerX + playerWidth - 4, shipY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath();
+        ctx.moveTo(playerX + playerWidth / 2 - 4, shipY - 14);
+        ctx.lineTo(playerX + playerWidth / 2, shipY - 18);
+        ctx.lineTo(playerX + playerWidth / 2 + 4, shipY - 14);
         ctx.closePath();
         ctx.fill();
         
         ctx.fillStyle = '#ffff00';
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 6;
         ctx.shadowColor = '#ffff00';
         for (let bullet of bullets) {
-            ctx.fillRect(bullet.x - 2, bullet.y, 4, 15);
+            ctx.fillRect(bullet.x - 2, bullet.y, 4, 12);
         }
         
-        ctx.fillStyle = '#ff0000';
-        ctx.shadowColor = '#ff0000';
+        ctx.fillStyle = '#ff4444';
+        ctx.shadowColor = '#ff4444';
         for (let bullet of enemyBullets) {
-            ctx.fillRect(bullet.x - 2, bullet.y, 4, 15);
+            ctx.fillRect(bullet.x - 2, bullet.y, 4, 12);
         }
         ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
         
         if (gameOver) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#ff00ff';
-            ctx.font = '30px "Press Start 2P"';
+            ctx.font = '24px "Press Start 2P"';
             ctx.textAlign = 'center';
             ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
             ctx.fillStyle = '#ffff00';
-            ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 40);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 32);
         }
         
         if (win) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#00ff00';
-            ctx.font = '30px "Press Start 2P"';
+            ctx.font = '24px "Press Start 2P"';
             ctx.textAlign = 'center';
             ctx.fillText('YOU WIN!', canvas.width/2, canvas.height/2);
             ctx.fillStyle = '#ffff00';
-            ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('Press SPACE to play again', canvas.width/2, canvas.height/2 + 40);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Press SPACE to play again', canvas.width/2, canvas.height/2 + 32);
         }
     }
     
     gameLoop = requestAnimationFrame(update);
+    cleanupFunctions.push(() => { window.removeEventListener('blur', clearSpaceKeys); });
 }
 
 // === MEMORY GAME ===
@@ -2394,17 +2472,17 @@ function initFlappy() {
     currentGameTitle.textContent = 'FLAPPY PIXEL';
     gameControls.innerHTML = 'SPACE or Click to flap';
     
-    canvas.width = 400;
-    canvas.height = 600;
+    canvas.width = 320;
+    canvas.height = 480;
     
-    const birdSize = 30;
+    const birdSize = 24;
     let birdY = canvas.height / 2;
     let birdVelocity = 0;
     const gravity = 0.5;
     const flapStrength = -10;
     
-    const pipeWidth = 60;
-    const pipeGap = 250;
+    const pipeWidth = 48;
+    const pipeGap = 180;
     let pipes = [];
     let gameOver = false;
     let started = false;
@@ -2413,10 +2491,9 @@ function initFlappy() {
     const pipeSpawnIntervalSec = 2;
     
     function spawnPipe() {
-        const minHeight = 80;
+        const minHeight = 60;
         const maxHeight = canvas.height - pipeGap - minHeight;
         const height = Math.random() * (maxHeight - minHeight) + minHeight;
-        // Limit pipes array to prevent memory issues
         if (pipes.length < 10) {
             pipes.push({
                 x: canvas.width,
@@ -2468,8 +2545,9 @@ function initFlappy() {
     
     let lastTime = performance.now();
     const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    bgGradient.addColorStop(0, '#001133');
-    bgGradient.addColorStop(1, '#003366');
+    bgGradient.addColorStop(0, '#0a0630');
+    bgGradient.addColorStop(0.4, '#001533');
+    bgGradient.addColorStop(1, '#002244');
     
     const STEP_DT = 1/60;
     const MAX_STEPS = 5;
@@ -2486,9 +2564,17 @@ function initFlappy() {
         
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ffffff33';
-        for (let i = 0; i < 30; i++) {
-            ctx.fillRect((i * 47) % canvas.width, (i * 83) % canvas.height, 2, 2);
+        // Stars (two layers)
+        for (let i = 0; i < 45; i++) {
+            const x = (i * 47) % canvas.width;
+            const y = (i * 83) % canvas.height;
+            const a = 0.15 + (i % 3) * 0.15;
+            ctx.fillStyle = `rgba(255,255,255,${a})`;
+            ctx.fillRect(x, y, 1, 1);
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        for (let i = 0; i < 20; i++) {
+            ctx.fillRect((i * 61) % canvas.width, (i * 97) % canvas.height, 2, 2);
         }
         
         if (started && !gameOver) {
@@ -2513,7 +2599,7 @@ function initFlappy() {
                     return pipe.x > -pipeWidth;
                 });
                 
-                const birdX = 80;
+                const birdX = 64;
                 
                 // Ground/ceiling - clamp and game over
                 if (birdY < 0) {
@@ -2547,24 +2633,46 @@ function initFlappy() {
             }
         }
         
+        // Ground strip
+        const groundY = canvas.height - 28;
+        ctx.fillStyle = '#1a4d1a';
+        ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+        ctx.fillStyle = '#2d6b2d';
+        for (let i = 0; i < canvas.width; i += 24) ctx.fillRect(i, groundY, 12, 4);
+        
         for (let pipe of pipes) {
-            ctx.fillStyle = '#00cc00';
-            ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = 4;
-            ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
-            ctx.fillRect(pipe.x - 5, pipe.topHeight - 30, pipeWidth + 10, 30);
+            const capH = 24;
+            const rim = 4;
             const bottomY = pipe.topHeight + pipeGap;
-            ctx.fillRect(pipe.x, bottomY, pipeWidth, canvas.height - bottomY);
-            ctx.fillRect(pipe.x - 5, bottomY, pipeWidth + 10, 30);
+            // Pipe body - darker base
+            ctx.fillStyle = '#0d5c0d';
+            ctx.fillRect(pipe.x + rim, 0, pipeWidth - rim * 2, pipe.topHeight);
+            ctx.fillRect(pipe.x + rim, bottomY, pipeWidth - rim * 2, canvas.height - bottomY);
+            // Pipe fill with highlight
+            ctx.fillStyle = '#00aa00';
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 6;
+            ctx.fillRect(pipe.x + rim, 0, pipeWidth - rim * 2, pipe.topHeight - capH);
+            ctx.fillRect(pipe.x + rim, bottomY + capH, pipeWidth - rim * 2, canvas.height - bottomY - capH);
+            // Top cap
+            ctx.fillStyle = '#008800';
+            ctx.fillRect(pipe.x - 4, pipe.topHeight - capH, pipeWidth + 8, capH);
+            ctx.fillStyle = '#00cc00';
+            ctx.fillRect(pipe.x, pipe.topHeight - capH + 4, pipeWidth, capH - 6);
+            // Bottom cap
+            ctx.fillStyle = '#008800';
+            ctx.fillRect(pipe.x - 4, bottomY, pipeWidth + 8, capH);
+            ctx.fillStyle = '#00cc00';
+            ctx.fillRect(pipe.x, bottomY + 4, pipeWidth, capH - 6);
         }
         ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
         
-        ctx.fillStyle = '#ffff00';
+        ctx.fillStyle = '#ffdd00';
         ctx.shadowColor = '#ffff00';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 8;
         
-        const birdX = 80;
+        const birdX = 64;
         const rotation = Math.min(Math.max(birdVelocity * 3, -30), 90);
         
         ctx.save();
@@ -2575,23 +2683,30 @@ function initFlappy() {
         ctx.beginPath();
         ctx.arc(0, 0, birdSize/2, 0, Math.PI * 2);
         ctx.fill();
-        
+        ctx.fillStyle = 'rgba(255,255,200,0.4)';
+        ctx.beginPath();
+        ctx.arc(-4, 4, birdSize/4, 0, Math.PI * 2);
+        ctx.fill();
+        // Wing
+        ctx.fillStyle = '#e6c200';
+        ctx.beginPath();
+        ctx.ellipse(-6, 2, 6, 10, 0.3, 0, Math.PI * 2);
+        ctx.fill();
         // Eye
         ctx.fillStyle = '#000';
         ctx.beginPath();
-        ctx.arc(8, -5, 5, 0, Math.PI * 2);
+        ctx.arc(6, -4, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(9, -6, 2, 0, Math.PI * 2);
+        ctx.arc(7, -5, 1.5, 0, Math.PI * 2);
         ctx.fill();
-        
         // Beak
-        ctx.fillStyle = '#ff8800';
+        ctx.fillStyle = '#ff6600';
         ctx.beginPath();
-        ctx.moveTo(15, 0);
-        ctx.lineTo(25, 0);
-        ctx.lineTo(15, 8);
+        ctx.moveTo(12, 0);
+        ctx.lineTo(20, 0);
+        ctx.lineTo(12, 6);
         ctx.closePath();
         ctx.fill();
         
@@ -2601,24 +2716,24 @@ function initFlappy() {
         // Instructions
         if (!started) {
             ctx.fillStyle = '#fff';
-            ctx.font = '16px "Press Start 2P"';
+            ctx.font = '12px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText('TAP TO START', canvas.width/2, canvas.height/2 + 100);
+            ctx.fillText('TAP TO START', canvas.width/2, canvas.height/2 + 50);
         }
         
         if (gameOver) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#ff00ff';
-            ctx.font = '24px "Press Start 2P"';
+            ctx.font = '18px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 30);
-            ctx.font = '14px "Press Start 2P"';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 20);
+            ctx.font = '11px "Press Start 2P"';
             ctx.fillStyle = '#fff';
-            ctx.fillText(`Score: ${score}`, canvas.width/2, canvas.height/2 + 10);
+            ctx.fillText(`Score: ${score}`, canvas.width/2, canvas.height/2 + 8);
             ctx.fillStyle = '#ffff00';
-            ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 50);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 36);
         }
     }
     
@@ -2628,14 +2743,14 @@ function initFlappy() {
 // === 2048 GAME ===
 function init2048() {
     currentGameTitle.textContent = '2048';
-    gameControls.innerHTML = 'Arrow Keys to move tiles';
+    gameControls.innerHTML = 'Arrow Keys or D-pad to move tiles';
     
-    canvas.width = 400;
-    canvas.height = 400;
+    canvas.width = 320;
+    canvas.height = 320;
     
     const gridSize = 4;
-    const tileSize = 90;
-    const padding = 10;
+    const tileSize = 70;
+    const padding = 8;
     
     let grid = Array(gridSize).fill().map(() => Array(gridSize).fill(0));
     let gameOver = false;
@@ -2743,13 +2858,11 @@ function init2048() {
     }
     
     function checkGameOver() {
-        // Check for empty cells
         for (let r = 0; r < gridSize; r++) {
             for (let c = 0; c < gridSize; c++) {
                 if (grid[r][c] === 0) return false;
             }
         }
-        // Check for possible merges
         for (let r = 0; r < gridSize; r++) {
             for (let c = 0; c < gridSize; c++) {
                 if (c < gridSize - 1 && grid[r][c] === grid[r][c+1]) return false;
@@ -2759,55 +2872,45 @@ function init2048() {
         return true;
     }
     
-    handleKeyDown = (e) => {
-        // Restart on space when game over
-        if (gameOver && e.key === ' ') {
-            e.preventDefault();
-            stopGame();
-            startGame('2048');
-            return;
-        }
+    const MOVE_COOLDOWN_MS = 120;
+    let lastMoveTime = 0;
+    
+    function tryMove(moveFn) {
         if (gameOver) return;
-        let moved = false;
-        
-        switch(e.key) {
-            case 'ArrowUp': moved = moveUp(); break;
-            case 'ArrowDown': moved = moveDown(); break;
-            case 'ArrowLeft': moved = moveLeft(); break;
-            case 'ArrowRight': moved = moveRight(); break;
-        }
-        
+        if (Date.now() - lastMoveTime < MOVE_COOLDOWN_MS) return;
+        const moved = moveFn();
         if (moved) {
+            lastMoveTime = Date.now();
             addRandomTile();
             if (checkGameOver()) {
                 gameOver = true;
                 playSound(100, 0.5);
             }
         }
+    }
+    
+    handleKeyDown = (e) => {
+        if (gameOver && e.key === ' ') {
+            e.preventDefault();
+            stopGame();
+            startGame('2048');
+            return;
+        }
+        if (e.repeat || gameOver) return;
+        switch (e.key) {
+            case 'ArrowUp': e.preventDefault(); tryMove(moveUp); break;
+            case 'ArrowDown': e.preventDefault(); tryMove(moveDown); break;
+            case 'ArrowLeft': e.preventDefault(); tryMove(moveLeft); break;
+            case 'ArrowRight': e.preventDefault(); tryMove(moveRight); break;
+        }
     };
     document.addEventListener('keydown', handleKeyDown);
 
     addTouchDpad({
-        onLeft: (p) => {
-            if (!p || gameOver) return;
-            let moved = moveLeft();
-            if (moved) { addRandomTile(); if (checkGameOver()) { gameOver = true; playSound(100, 0.5); } }
-        },
-        onRight: (p) => {
-            if (!p || gameOver) return;
-            let moved = moveRight();
-            if (moved) { addRandomTile(); if (checkGameOver()) { gameOver = true; playSound(100, 0.5); } }
-        },
-        onUp: (p) => {
-            if (!p || gameOver) return;
-            let moved = moveUp();
-            if (moved) { addRandomTile(); if (checkGameOver()) { gameOver = true; playSound(100, 0.5); } }
-        },
-        onDown: (p) => {
-            if (!p || gameOver) return;
-            let moved = moveDown();
-            if (moved) { addRandomTile(); if (checkGameOver()) { gameOver = true; playSound(100, 0.5); } }
-        }
+        onLeft: (p) => { if (p) tryMove(moveLeft); },
+        onRight: (p) => { if (p) tryMove(moveRight); },
+        onUp: (p) => { if (p) tryMove(moveUp); },
+        onDown: (p) => { if (p) tryMove(moveDown); }
     });
     
     // Initialize with 2 tiles
@@ -2835,42 +2938,43 @@ function init2048() {
                 ctx.fillStyle = colors[value] || '#3c3a32';
                 if (value > 0) {
                     ctx.shadowColor = colors[value] || '#3c3a32';
-                    ctx.shadowBlur = 15;
+                    ctx.shadowBlur = 10;
                 }
                 ctx.fillRect(x, y, tileSize, tileSize);
                 ctx.shadowBlur = 0;
                 
                 if (value > 0) {
                     ctx.fillStyle = textColors[value] || '#f9f6f2';
-                    ctx.font = value >= 1000 ? 'bold 28px Orbitron' : 'bold 36px Orbitron';
+                    const fontSize = value >= 1024 ? 20 : value >= 128 ? 24 : 28;
+                    ctx.font = `bold ${fontSize}px Orbitron`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(value, x + tileSize/2, y + tileSize/2);
+                    ctx.fillText(String(value), x + tileSize/2, y + tileSize/2);
                 }
             }
         }
         
         if (gameOver) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#ff00ff';
-            ctx.font = '28px "Press Start 2P"';
+            ctx.font = '20px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 20);
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 14);
             ctx.fillStyle = '#ffff00';
-            ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 30);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 22);
         }
         
         if (won && !gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#00ff00';
-            ctx.font = '28px "Press Start 2P"';
+            ctx.font = '20px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText('YOU WIN!', canvas.width/2, canvas.height/2 - 20);
-            ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('Keep playing!', canvas.width/2, canvas.height/2 + 20);
+            ctx.fillText('YOU WIN!', canvas.width/2, canvas.height/2 - 14);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Keep playing!', canvas.width/2, canvas.height/2 + 16);
         }
     }
     
