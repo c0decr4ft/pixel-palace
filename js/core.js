@@ -279,6 +279,9 @@ function startGame(gameName) {
             stopArcadeMusic();
             return;
     }
+    /* Lock CSS aspect-ratio to the canvas buffer so the border
+       always matches the gameplay area on every screen orientation. */
+    canvas.style.aspectRatio = canvas.width + ' / ' + canvas.height;
 }
 
 function stopGame() {
@@ -302,6 +305,7 @@ function stopGame() {
         canvas.ontouchend = null;
         canvas.ontouchmove = null;
         canvas.oncontextmenu = null;
+        canvas.style.aspectRatio = '';
     }
     clearTouchControls();
     stopArcadeMusic();

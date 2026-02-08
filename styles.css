@@ -789,6 +789,7 @@ body {
     max-width: 100%;
     width: auto;
     height: auto;
+    aspect-ratio: auto;
     max-height: min(70vh, calc(100vh - 220px));
     max-height: min(70dvh, calc(100dvh - 220px));
     touch-action: none;
@@ -1098,6 +1099,9 @@ body.game-active #gameCanvas {
     padding: 0.75rem 1rem;
     background: rgba(0,0,0,0.5);
     border-radius: 8px;
+    -webkit-user-select: all;
+    user-select: all;
+    cursor: text;
 }
 
 .pong-waiting-msg {
