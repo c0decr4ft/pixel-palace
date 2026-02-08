@@ -20,11 +20,25 @@ This document provides essential information about the PIXEL PALACE project for 
 ```
 pixel-palace/
 ├── index.html          # Main entry point, contains game lobby UI
-├── styles.css          # All CSS styling (1700+ lines), includes animations
-├── games.js           # Game logic and implementations (8300+ lines)
-├── README.md          # User-facing documentation
-├── AGENTS.md          # This file - agent documentation
-└── LICENSE            # GNU GPL v3 + Non-Commercial License
+├── styles.css          # All CSS styling, includes animations
+├── js/
+│   ├── core.js        # Shared globals, lobby, startGame/stopGame, audio, touch helpers
+│   └── games/         # One file per game (each exports init via global)
+│       ├── snake.js
+│       ├── tetris.js
+│       ├── pong.js
+│       ├── tron.js
+│       ├── breakout.js
+│       ├── spaceinvaders.js
+│       ├── memory.js
+│       ├── flappy.js
+│       ├── 2048.js
+│       ├── simonsays.js
+│       ├── frogger.js
+│       └── pacman.js
+├── README.md
+├── AGENTS.md
+└── LICENSE
 ```
 
 ## Key Components
@@ -45,8 +59,14 @@ pixel-palace/
 - Responsive design breakpoints
 - Futuristic game cabinet variants
 
-### games.js
-- Game initialization functions
+### js/core.js
+- DOM refs, audio (playSound, arcade music), SFX/music toggles
+- startGame(gameName) / stopGame(), updateScore()
+- Touch helpers: addTouchDpad, getEventCanvasCoords, clearTouchControls
+- Lobby: category filter, play-btn handlers, back button
+
+### js/games/*.js
+- Each file defines one global: `function initSnake()`, `function initTetris()`, etc.
 - Game loop implementations
 - Input handling (keyboard, mouse, touch)
 - Score tracking
@@ -130,25 +150,10 @@ function gameLoop() {
 </div>
 ```
 
-2. Add case in `startGame()` switch statement in `games.js`:
-```javascript
-case 'gamename':
-    initGameName();
-    break;
-```
-
-3. Implement game functions:
-```javascript
-function initGameName() {
-    // Initialization code
-}
-
-function gameNameLoop() {
-    // Game loop code
-}
-```
-
-4. Add CSS styling in `styles.css` if needed
+2. In `js/core.js`: add to `GAME_DISPLAY_NAMES` and add `case 'gamename': initGameName(); break;` in `startGame()`.
+3. Create `js/games/gamename.js` with `function initGameName() { ... }` (and game loop).
+4. In `index.html`: add `<script src="js/games/gamename.js"></script>` before `</body>`.
+5. Add CSS in `styles.css` if needed.
 
 ### Code Style
 - Use ES6+ features (const, let, arrow functions)
@@ -207,7 +212,7 @@ function gameNameLoop() {
 
 ## Future Enhancement Opportunities
 
-- Modularize games.js into separate files
+- Game logic is split into js/core.js and js/games/*.js
 - Add game save/load functionality
 - Implement leaderboards
 - Add more multiplayer games
@@ -218,7 +223,7 @@ function gameNameLoop() {
 ## Agent-Specific Notes
 
 When working with this codebase:
-- The codebase is intentionally monolithic (single-file games.js)
+- Game logic lives in js/core.js (shared) and js/games/*.js (one file per game)
 - No TypeScript or type checking
 - No linting configuration
 - No testing framework

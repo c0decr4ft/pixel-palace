@@ -801,6 +801,27 @@ body {
     align-self: center;
 }
 
+/* === PERFORMANCE: disable expensive layers during gameplay === */
+body.game-active .scanlines,
+body.game-active .noise {
+    display: none;
+}
+
+body.game-active .arcade-header,
+body.game-active .arcade-footer {
+    visibility: hidden;
+    animation: none;
+}
+
+body.game-active .arcade-header *,
+body.game-active .arcade-footer * {
+    animation: none !important;
+}
+
+body.game-active #gameCanvas {
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+}
+
 .game-play-area {
     display: flex;
     flex-direction: row;
@@ -964,12 +985,14 @@ body {
 }
 
 .pong-game-area #gameCanvas {
-    flex: 1;
+    flex: 0 1 auto;
+    width: auto;
+    height: auto;
     min-width: 0;
-    min-height: 300px;
+    min-height: 0;
+    max-width: 100%;
     max-height: min(90vh, calc(100vh - 120px));
     max-height: min(90dvh, calc(100dvh - 120px));
-    object-fit: contain;
 }
 
 .pong-game-area .touch-controls {
