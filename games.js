@@ -40,20 +40,43 @@ try {
     if (localStorage.getItem(STORAGE_MUSIC) === '0') arcadeMusicEnabled = false;
 } catch (e) {}
 
-// Arcade background music (simple chiptune loop)
+// Arcade background music: multiple segments that rotate (different beats)
 let arcadeMusicOsc = null;
 let arcadeMusicGain = null;
 let arcadeMusicTimeout = null;
-const ARCADE_MELODY = [
-    [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
-    [392, 0.15], [523, 0.25], [0, 0.1],
-    [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
-    [392, 0.15], [330, 0.25], [0, 0.1],
-    [349, 0.15], [440, 0.15], [523, 0.15], [698, 0.2],
-    [523, 0.15], [440, 0.25], [0, 0.1],
-    [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
-    [392, 0.15], [330, 0.2], [262, 0.4]
+
+const ARCADE_TRACKS = [
+    // Track 1: upbeat arpeggio
+    [
+        [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
+        [392, 0.15], [523, 0.25], [0, 0.1],
+        [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
+        [392, 0.15], [330, 0.25], [0, 0.1],
+        [349, 0.15], [440, 0.15], [523, 0.15], [698, 0.2],
+        [523, 0.15], [440, 0.25], [0, 0.1],
+        [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
+        [392, 0.15], [330, 0.2], [262, 0.4]
+    ],
+    // Track 2: lower, chiller groove
+    [
+        [196, 0.2], [247, 0.2], [294, 0.2], [247, 0.2],
+        [196, 0.25], [0, 0.08], [262, 0.2], [330, 0.2],
+        [392, 0.25], [330, 0.2], [262, 0.3], [0, 0.1],
+        [220, 0.2], [262, 0.2], [330, 0.2], [262, 0.2],
+        [220, 0.3], [0, 0.08], [196, 0.2], [247, 0.25],
+        [196, 0.35]
+    ],
+    // Track 3: higher, bouncy
+    [
+        [523, 0.12], [659, 0.12], [784, 0.12], [659, 0.12],
+        [523, 0.18], [0, 0.06], [587, 0.12], [740, 0.12],
+        [523, 0.18], [0, 0.06], [392, 0.15], [494, 0.15],
+        [587, 0.15], [494, 0.15], [392, 0.22], [0, 0.08],
+        [440, 0.12], [554, 0.12], [659, 0.12], [554, 0.12],
+        [440, 0.2], [523, 0.25]
+    ]
 ];
+
 function stopArcadeMusic() {
     if (arcadeMusicTimeout) clearTimeout(arcadeMusicTimeout);
     arcadeMusicTimeout = null;
@@ -63,13 +86,17 @@ function stopArcadeMusic() {
     }
     arcadeMusicGain = null;
 }
-function scheduleArcadeMusicStep(stepIndex) {
+
+function scheduleArcadeMusicStep(stepIndex, trackIndex) {
     if (!arcadeMusicGain || !gameContainer || !gameContainer.classList.contains('active')) return;
-    if (!audioCtx || audioCtx.state === 'closed') return;
-    const [freq, dur] = ARCADE_MELODY[stepIndex % ARCADE_MELODY.length];
-    const next = (stepIndex + 1) % ARCADE_MELODY.length;
+    if (!arcadeMusicEnabled || !audioCtx || audioCtx.state === 'closed') return;
+    const track = ARCADE_TRACKS[trackIndex % ARCADE_TRACKS.length];
+    const [freq, dur] = track[stepIndex % track.length];
+    const nextStep = stepIndex + 1;
+    const nextTrackIndex = nextStep >= track.length ? (trackIndex + 1) % ARCADE_TRACKS.length : trackIndex;
+    const nextStepIndex = nextStep >= track.length ? 0 : nextStep;
     arcadeMusicTimeout = setTimeout(() => {
-        scheduleArcadeMusicStep(next);
+        scheduleArcadeMusicStep(nextStepIndex, nextTrackIndex);
     }, (dur + 0.02) * 1000);
     if (freq > 0 && arcadeMusicOsc) {
         try {
@@ -80,6 +107,7 @@ function scheduleArcadeMusicStep(stepIndex) {
         } catch (e) {}
     }
 }
+
 function startArcadeMusic() {
     stopArcadeMusic();
     if (!arcadeMusicEnabled || !audioCtx || audioCtx.state === 'suspended' || audioCtx.state === 'closed') return;
@@ -90,7 +118,7 @@ function startArcadeMusic() {
     arcadeMusicOsc.connect(arcadeMusicGain);
     arcadeMusicGain.connect(audioCtx.destination);
     arcadeMusicOsc.start(audioCtx.currentTime);
-    scheduleArcadeMusicStep(0);
+    scheduleArcadeMusicStep(0, 0);
 }
 
 function playSound(frequency, duration, type = 'square') {
@@ -181,7 +209,14 @@ if (musicToggle) {
         arcadeMusicEnabled = !arcadeMusicEnabled;
         try { localStorage.setItem(STORAGE_MUSIC, arcadeMusicEnabled ? '1' : '0'); } catch (e) {}
         updateAudioToggleUI();
-        if (!arcadeMusicEnabled) stopArcadeMusic();
+        if (!arcadeMusicEnabled) {
+            stopArcadeMusic();
+        } else if (gameContainer && gameContainer.classList.contains('active')) {
+            if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'running')) {
+                if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic()).catch(() => {});
+                else startArcadeMusic();
+            }
+        }
     });
 }
 updateAudioToggleUI();
@@ -205,7 +240,10 @@ const GAME_DISPLAY_NAMES = {
     spaceinvaders: 'SPACE INVADERS',
     memory: 'MEMORY',
     flappy: 'FLAPPY PIXEL',
-    '2048': '2048'
+    '2048': '2048',
+    simonsays: 'SIMON SAYS',
+    pacman: 'PAC-MAN',
+    frogger: 'FROGGER'
 };
 
 function startGame(gameName) {
@@ -262,6 +300,15 @@ function startGame(gameName) {
             break;
         case '2048':
             init2048();
+            break;
+        case 'simonsays':
+            initSimonSays();
+            break;
+        case 'pacman':
+            initPacman();
+            break;
+        case 'frogger':
+            initFrogger();
             break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
@@ -813,8 +860,8 @@ function initTetris() {
 }
 
 // === PONG GAME ===
-const PONG_W = 960;
-const PONG_H = 600;
+const PONG_W = 1080;
+const PONG_H = 720;
 const PADDLE_W = 18;
 const PADDLE_H = 100;
 const BALL_SIZE = 18;
@@ -2978,6 +3025,544 @@ function init2048() {
         }
     }
     
+    gameLoop = requestAnimationFrame(draw);
+}
+
+// === SIMON SAYS ===
+function initSimonSays() {
+    currentGameTitle.textContent = 'SIMON SAYS';
+    gameControls.innerHTML = 'Repeat the sequence. Arrow keys or tap the colored pads.';
+    if (!canvas || !ctx) return;
+    canvas.width = 320;
+    canvas.height = 320;
+    const PAD_COLORS = ['#00ff00', '#ff0066', '#ffff00', '#00ffff'];
+    const PAD_FREQS = [262, 330, 392, 494];
+    const PAD_NAMES = ['Up', 'Right', 'Down', 'Left'];
+    let sequence = [];
+    let playerIndex = 0;
+    let state = 'idle';
+    let gameOver = false;
+    let flashUntil = 0;
+    let flashPad = -1;
+    let playStepIndex = 0;
+    let playStepTimeout = null;
+    const PAD_MARGIN = 12;
+    const PAD_GAP = 8;
+    const padW = (canvas.width - PAD_MARGIN * 2 - PAD_GAP) / 2;
+    const padH = (canvas.height - PAD_MARGIN * 2 - PAD_GAP) / 2;
+    const padRects = [
+        { x: PAD_MARGIN, y: PAD_MARGIN, w: padW, h: padH },
+        { x: PAD_MARGIN + padW + PAD_GAP, y: PAD_MARGIN, w: padW, h: padH },
+        { x: PAD_MARGIN, y: PAD_MARGIN + padH + PAD_GAP, w: padW, h: padH },
+        { x: PAD_MARGIN + padW + PAD_GAP, y: PAD_MARGIN + padH + PAD_GAP, w: padW, h: padH }
+    ];
+    function padAt(x, y) {
+        for (let i = 0; i < 4; i++) {
+            const r = padRects[i];
+            if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return i;
+        }
+        return -1;
+    }
+    function startRound() {
+        sequence.push(Math.floor(Math.random() * 4));
+        updateScore(sequence.length - 1);
+        state = 'playing';
+        playStepIndex = 0;
+        schedulePlayStep();
+    }
+    function schedulePlayStep() {
+        if (playStepTimeout) clearTimeout(playStepTimeout);
+        if (state !== 'playing' || playStepIndex >= sequence.length) {
+            state = 'input';
+            playerIndex = 0;
+            return;
+        }
+        flashPad = sequence[playStepIndex];
+        flashUntil = performance.now() + 280;
+        if (soundEffectsEnabled && audioCtx) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.connect(g);
+                g.connect(audioCtx.destination);
+                osc.frequency.value = PAD_FREQS[flashPad];
+                osc.type = 'square';
+                g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.25);
+            } catch (e) {}
+        }
+        playStepIndex++;
+        playStepTimeout = setTimeout(schedulePlayStep, 380);
+    }
+    function onPadPress(pad) {
+        if (gameOver || pad < 0 || pad > 3) return;
+        if (state === 'idle' && sequence.length === 0) {
+            startRound();
+            return;
+        }
+        if (state !== 'input') return;
+        flashPad = pad;
+        flashUntil = performance.now() + 180;
+        playSound(PAD_FREQS[pad], 0.15);
+        if (sequence[playerIndex] !== pad) {
+            gameOver = true;
+            if (playStepTimeout) clearTimeout(playStepTimeout);
+            playStepTimeout = null;
+            playSound(80, 0.4);
+            return;
+        }
+        playerIndex++;
+        if (playerIndex >= sequence.length) {
+            state = 'idle';
+            setTimeout(startRound, 600);
+        }
+    }
+    handleKeyDown = (e) => {
+        if (gameOver && e.key === ' ') {
+            e.preventDefault();
+            stopGame();
+            startGame('simonsays');
+            return;
+        }
+        const keyToPad = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 };
+        const pad = keyToPad[e.key];
+        if (pad !== undefined) {
+            e.preventDefault();
+            onPadPress(pad);
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    canvas.onclick = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+        onPadPress(padAt(x, y));
+    };
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const co = getEventCanvasCoords(e);
+        if (co) onPadPress(padAt(co.x, co.y));
+    }, { passive: false });
+    addTouchDpad({
+        onUp: (p) => { if (p) onPadPress(0); },
+        onRight: (p) => { if (p) onPadPress(1); },
+        onDown: (p) => { if (p) onPadPress(2); },
+        onLeft: (p) => { if (p) onPadPress(3); }
+    });
+    function draw() {
+        gameLoop = requestAnimationFrame(draw);
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const now = performance.now();
+        const flashing = flashPad >= 0 && now < flashUntil;
+        for (let i = 0; i < 4; i++) {
+            const r = padRects[i];
+            const col = PAD_COLORS[i];
+            ctx.fillStyle = col;
+            ctx.shadowColor = col;
+            ctx.shadowBlur = (flashing && flashPad === i) ? 25 : 8;
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+            if (!(flashing && flashPad === i)) {
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(r.x, r.y, r.w, r.h);
+            }
+        }
+        ctx.shadowBlur = 0;
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ff0066';
+            ctx.font = '18px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 10);
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Score: ' + (sequence.length - 1), canvas.width/2, canvas.height/2 + 18);
+            ctx.fillText('SPACE to restart', canvas.width/2, canvas.height/2 + 42);
+            return;
+        }
+        if (state === 'idle' && sequence.length === 0) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('PRESS ANY PAD TO START', canvas.width/2, canvas.height/2 + 6);
+        }
+    }
+    gameLoop = requestAnimationFrame(draw);
+    cleanupFunctions.push(() => { if (playStepTimeout) clearTimeout(playStepTimeout); });
+}
+
+// === FROGGER ===
+function initFrogger() {
+    currentGameTitle.textContent = 'FROGGER';
+    gameControls.innerHTML = 'Arrow keys or D-pad: reach the goals at the top.';
+    if (!canvas || !ctx) return;
+    const COLS = 9;
+    const ROWS = 11;
+    const CELL = 32;
+    canvas.width = COLS * CELL;
+    canvas.height = ROWS * CELL;
+    let frog = { x: Math.floor(COLS / 2), y: ROWS - 1 };
+    let lives = 3;
+    let gameOver = false;
+    let score = 0;
+    const goals = [2, 4, 6];
+    const goalFilled = [false, false, false];
+    const STEP_MS = 400;
+    let lastMove = 0;
+    const cars = [];
+    const LANES = [
+        { y: 8, dir: 1, speed: 0.6, len: 2 },
+        { y: 7, dir: -1, speed: 0.5, len: 2 },
+        { y: 6, dir: 1, speed: 0.7, len: 3 },
+        { y: 5, dir: -1, speed: 0.5, len: 2 },
+        { y: 4, dir: 1, speed: 0.6, len: 2 }
+    ];
+    LANES.forEach((lane, i) => {
+        for (let n = 0; n < 3; n++) {
+            cars.push({
+                x: (n * (COLS + lane.len) / 3 + (i % 2) * 2) % (COLS + lane.len) - lane.len,
+                y: lane.y,
+                dir: lane.dir,
+                speed: lane.speed,
+                len: lane.len
+            });
+        }
+    });
+    let carAccum = 0;
+    handleKeyDown = (e) => {
+        if (gameOver && e.key === ' ') {
+            e.preventDefault();
+            stopGame();
+            startGame('frogger');
+            return;
+        }
+        if (gameOver) return;
+        const keyDir = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+        const d = keyDir[e.key];
+        if (d) {
+            e.preventDefault();
+            const nx = frog.x + d[0];
+            const ny = frog.y + d[1];
+            if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) {
+                frog.x = nx;
+                frog.y = ny;
+                lastMove = performance.now();
+                if (ny === 0) {
+                    const g = goals.indexOf(frog.x);
+                    if (g >= 0 && !goalFilled[g]) {
+                        goalFilled[g] = true;
+                        score += 10;
+                        updateScore(score);
+                        playSound(600, 0.15);
+                        if (goalFilled.every(Boolean)) {
+                            goalFilled[0] = goalFilled[1] = goalFilled[2] = false;
+                        }
+                        frog = { x: Math.floor(COLS / 2), y: ROWS - 1 };
+                    }
+                }
+            }
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    addTouchDpad({
+        onUp: (p) => {
+            if (!p || gameOver) return;
+            const ny = frog.y - 1;
+            if (ny >= 0) { frog.y = ny; lastMove = performance.now(); }
+            if (frog.y === 0) {
+                const g = goals.indexOf(frog.x);
+                if (g >= 0 && !goalFilled[g]) {
+                    goalFilled[g] = true;
+                    score += 10;
+                    updateScore(score);
+                    playSound(600, 0.15);
+                    if (goalFilled.every(Boolean)) goalFilled[0] = goalFilled[1] = goalFilled[2] = false;
+                    frog = { x: Math.floor(COLS / 2), y: ROWS - 1 };
+                }
+            }
+        },
+        onDown: (p) => { if (p && !gameOver && frog.y < ROWS - 1) { frog.y++; lastMove = performance.now(); } },
+        onLeft: (p) => { if (p && !gameOver && frog.x > 0) { frog.x--; lastMove = performance.now(); } },
+        onRight: (p) => { if (p && !gameOver && frog.x < COLS - 1) { frog.x++; lastMove = performance.now(); } }
+    });
+    function draw(now) {
+        gameLoop = requestAnimationFrame(draw);
+        if (!gameOver) {
+            carAccum += 0.016;
+            while (carAccum >= 0.05) {
+                carAccum -= 0.05;
+                cars.forEach(c => {
+                    c.x += c.dir * c.speed;
+                    if (c.dir > 0 && c.x >= COLS) c.x = -c.len;
+                    if (c.dir < 0 && c.x < -c.len) c.x = COLS;
+                });
+            }
+            for (const c of cars) {
+                const cx = Math.floor(c.x);
+                if (frog.y === c.y && frog.x >= cx && frog.x < cx + c.len) {
+                    gameOver = true;
+                    playSound(100, 0.4);
+                }
+            }
+        }
+        ctx.fillStyle = '#0d0d20';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#1a1a30';
+        for (let r = 0; r < ROWS; r++) ctx.fillRect(0, r * CELL, canvas.width, CELL);
+        for (let g of goals) {
+            ctx.fillStyle = '#00aa44';
+            ctx.fillRect(g * CELL + 4, 0, CELL - 8, CELL - 4);
+        }
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, 3 * CELL, canvas.width, (ROWS - 4) * CELL);
+        cars.forEach(c => {
+            ctx.fillStyle = '#ff0066';
+            ctx.shadowColor = '#ff0066';
+            ctx.shadowBlur = 6;
+            ctx.fillRect(Math.round(c.x) * CELL + 2, c.y * CELL + 2, c.len * CELL - 4, CELL - 4);
+            ctx.shadowBlur = 0;
+        });
+        ctx.fillStyle = '#00ff88';
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(frog.x * CELL + CELL/2, frog.y * CELL + CELL/2, CELL/2 - 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ff0066';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 8);
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('SPACE to restart', canvas.width/2, canvas.height/2 + 22);
+        }
+    }
+    gameLoop = requestAnimationFrame(draw);
+}
+
+// === PAC-MAN ===
+function initPacman() {
+    currentGameTitle.textContent = 'PAC-MAN';
+    gameControls.innerHTML = 'Arrow keys or D-pad: eat dots, avoid ghosts.';
+    if (!canvas || !ctx) return;
+    const TILE = 16;
+    const MW = 19;
+    const MH = 21;
+    canvas.width = MW * TILE;
+    canvas.height = MH * TILE;
+    const WALL = 1;
+    const DOT = 2;
+    const POWER = 3;
+    const maze = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,1],
+        [1,3,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,3,1],
+        [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+        [1,2,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,2,1],
+        [1,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,1],
+        [1,1,1,1,2,1,1,1,0,1,0,1,1,1,2,1,1,1,1],
+        [0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0],
+        [1,1,1,1,2,1,0,1,1,0,1,1,0,1,2,1,1,1,1],
+        [1,2,2,2,2,0,0,1,0,0,0,1,0,0,2,2,2,2,1],
+        [1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1],
+        [0,0,0,0,2,1,0,0,0,0,0,0,0,1,2,0,0,0,0],
+        [1,1,1,1,2,1,0,1,1,0,1,1,0,1,2,1,1,1,1],
+        [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,1],
+        [1,2,1,1,2,1,1,1,0,1,0,1,1,1,2,1,1,2,1],
+        [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+    for (let r = maze.length; r < MH; r++) maze.push([1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1]);
+    let pac = { x: 9, y: 15, dir: [0, 0], nextDir: [0, 0] };
+    let ghosts = [
+        { x: 9, y: 9, dir: [0, 0], color: '#ff0000' },
+        { x: 8, y: 9, dir: [0, 0], color: '#ffb8ff' }
+    ];
+    let gameOver = false;
+    let powerUntil = 0;
+    const POWER_DUR = 8;
+    let dotsLeft = 0;
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (maze[y][x] === DOT || maze[y][x] === POWER) dotsLeft++;
+    const STEP_MS = 120;
+    let lastStep = 0;
+    let anim = 0;
+    function canGo(x, y) {
+        if (x < 0 || x >= MW || y < 0 || y >= MH) return false;
+        const t = maze[y][x];
+        return t !== WALL;
+    }
+    function movePac() {
+        const [dx, dy] = pac.nextDir;
+        if (dx !== 0 || dy !== 0) {
+            const nx = pac.x + dx;
+            const ny = pac.y + dy;
+            if (canGo(nx, ny)) {
+                pac.dir = [dx, dy];
+                pac.x = nx;
+                pac.y = ny;
+                if (maze[ny][nx] === DOT) {
+                    maze[ny][nx] = 0;
+                    dotsLeft--;
+                    updateScore(score + 10);
+                    playSound(400, 0.06);
+                } else if (maze[ny][nx] === POWER) {
+                    maze[ny][nx] = 0;
+                    dotsLeft--;
+                    powerUntil = performance.now() / 1000 + POWER_DUR;
+                    playSound(600, 0.15);
+                }
+                return;
+            }
+        }
+        const [dx2, dy2] = pac.dir;
+        const nx2 = pac.x + dx2;
+        const ny2 = pac.y + dy2;
+        if (canGo(nx2, ny2)) {
+            pac.x = nx2;
+            pac.y = ny2;
+            if (maze[ny2][nx2] === DOT) {
+                maze[ny2][nx2] = 0;
+                dotsLeft--;
+                updateScore(score + 10);
+                playSound(400, 0.06);
+            } else if (maze[ny2][nx2] === POWER) {
+                maze[ny2][nx2] = 0;
+                dotsLeft--;
+                powerUntil = performance.now() / 1000 + POWER_DUR;
+                playSound(600, 0.15);
+            }
+        }
+    }
+    function moveGhost(g) {
+        const now = performance.now() / 1000;
+        const edible = now < powerUntil;
+        const choices = [];
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = g.x + dx;
+            const ny = g.y + dy;
+            if (canGo(nx, ny) && (g.dir[0] !== -dx || g.dir[1] !== -dy)) {
+                const dist = (nx - pac.x) ** 2 + (ny - pac.y) ** 2;
+                choices.push({ dx, dy, dist: edible ? dist : -dist });
+            }
+        }
+        if (choices.length === 0) return;
+        choices.sort((a, b) => edible ? a.dist - b.dist : a.dist - b.dist);
+        const pick = edible ? choices[choices.length - 1] : choices[0];
+        g.dir = [pick.dx, pick.dy];
+        g.x += pick.dx;
+        g.y += pick.dy;
+    }
+    handleKeyDown = (e) => {
+        if (gameOver && e.key === ' ') {
+            e.preventDefault();
+            stopGame();
+            startGame('pacman');
+            return;
+        }
+        const keyDir = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+        const d = keyDir[e.key];
+        if (d) { e.preventDefault(); pac.nextDir = d; }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    addTouchDpad({
+        onUp: (p) => { if (p) pac.nextDir = [0, -1]; },
+        onDown: (p) => { if (p) pac.nextDir = [0, 1]; },
+        onLeft: (p) => { if (p) pac.nextDir = [-1, 0]; },
+        onRight: (p) => { if (p) pac.nextDir = [1, 0]; }
+    });
+    function draw(now) {
+        gameLoop = requestAnimationFrame(draw);
+        if (!gameOver) {
+            if (now - lastStep >= STEP_MS) {
+                lastStep += STEP_MS;
+                movePac();
+                ghosts.forEach(moveGhost);
+                if (dotsLeft === 0) {
+                    updateScore(score + 100);
+                    playSound(800, 0.3);
+                    gameOver = true;
+                }
+                ghosts.forEach(g => {
+                    if (Math.abs(g.x - pac.x) < 0.5 && Math.abs(g.y - pac.y) < 0.5) {
+                        if (now / 1000 < powerUntil) {
+                            g.x = 9;
+                            g.y = 9;
+                            updateScore(score + 200);
+                            playSound(1000, 0.2);
+                        } else {
+                            gameOver = true;
+                            playSound(100, 0.4);
+                        }
+                    }
+                });
+            }
+            anim = (anim + 0.2) % 1;
+        }
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let y = 0; y < MH; y++) {
+            for (let x = 0; x < MW; x++) {
+                const t = maze[y][x];
+                if (t === WALL) {
+                    ctx.fillStyle = '#2222aa';
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2);
+                    ctx.fillRect(x * TILE + 2, y * TILE + 2, TILE - 4, TILE - 4);
+                } else if (t === DOT) {
+                    ctx.fillStyle = '#ffff88';
+                    ctx.beginPath();
+                    ctx.arc(x * TILE + TILE/2, y * TILE + TILE/2, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (t === POWER) {
+                    ctx.fillStyle = '#ffff88';
+                    ctx.beginPath();
+                    ctx.arc(x * TILE + TILE/2, y * TILE + TILE/2, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        const edible = now / 1000 < powerUntil;
+        ghosts.forEach(g => {
+            ctx.fillStyle = edible ? '#8888ff' : g.color;
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(g.x * TILE + TILE/2, g.y * TILE + TILE/2, TILE/2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+        ctx.fillStyle = '#ffff00';
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 8;
+        const mouth = 0.3 + Math.sin(anim * Math.PI * 2) * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(pac.x * TILE + TILE/2, pac.y * TILE + TILE/2);
+        ctx.arc(pac.x * TILE + TILE/2, pac.y * TILE + TILE/2, TILE/2 - 2, mouth * Math.PI, (2 - mouth) * Math.PI);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = dotsLeft === 0 ? '#00ff00' : '#ff0066';
+            ctx.font = '14px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText(dotsLeft === 0 ? 'YOU WIN!' : 'GAME OVER', canvas.width/2, canvas.height/2 - 6);
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.fillText('SPACE to restart', canvas.width/2, canvas.height/2 + 18);
+        }
+    }
     gameLoop = requestAnimationFrame(draw);
 }
 
