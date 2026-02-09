@@ -510,38 +510,6 @@ body {
     50% { transform: translateX(10px); }
 }
 
-.memory-preview {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    padding: 20px;
-}
-
-.memory-demo {
-    display: grid;
-    grid-template-columns: repeat(2, 30px);
-    gap: 5px;
-}
-
-.memory-demo::before,
-.memory-demo::after {
-    content: '?';
-    width: 30px;
-    height: 30px;
-    background: var(--neon-pink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.8rem;
-    animation: cardFlip 2s ease-in-out infinite;
-    box-shadow: 0 0 15px var(--neon-pink);
-}
-
-@keyframes cardFlip {
-    0%, 45% { transform: rotateY(0deg); }
-    50%, 95% { transform: rotateY(180deg); }
-}
 
 .memory2-preview {
     background: #050d05;

@@ -1,10 +1,10 @@
 // === MEMORY TWO — Matrix / Hacker theme ===
 function initMemory2() {
-    currentGameTitle.textContent = 'MEMORY II';
+    currentGameTitle.textContent = 'MEMORY';
     gameControls.innerHTML = 'Click tiles to reveal & match pairs';
 
-    canvas.width = 290;
-    canvas.height = 240;
+    canvas.width = 230;
+    canvas.height = 230;
 
     const symbols = ['⚡', '☆', '◈', '⬡', '⊕', '♠', '✧', '⚙', '☄', '♜'];
     const colors = [
@@ -16,9 +16,9 @@ function initMemory2() {
     let cards = [];
     const rows = 4;
     const cols = 5;
-    const cardW = 48;
-    const cardH = 48;
-    const pad = 8;
+    const cardW = 38;
+    const cardH = 46;
+    const pad = 6;
     const gridW = cols * (cardW + pad) - pad;
     const gridH = rows * (cardH + pad) - pad;
     const offX = Math.floor((canvas.width - gridW) / 2);
@@ -171,7 +171,7 @@ function initMemory2() {
                 ctx.strokeRect(card.x, card.y, cardW, cardH);
                 // Symbol
                 ctx.fillStyle = card.color;
-                ctx.font = '20px Arial';
+                ctx.font = '16px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(card.symbol, card.x + cardW / 2, card.y + cardH / 2);

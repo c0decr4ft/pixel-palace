@@ -3,12 +3,12 @@ function initTetris() {
     currentGameTitle.textContent = 'TETRIS';
     gameControls.innerHTML = 'Arrow Keys: ← → Move | ↓ Fast Drop | ↑ Rotate';
     
-    canvas.width = 180;
-    canvas.height = 360;
+    canvas.width = 120;
+    canvas.height = 240;
     
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK_SIZE = 18;
+    const BLOCK_SIZE = 12;
     
     const SHAPES = [
         [[1,1,1,1]], // I
@@ -129,7 +129,7 @@ function initTetris() {
     spawnPiece();
     
     let lastTime = 0;
-    let dropInterval = 1000;
+    let dropInterval = 1500;
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
@@ -158,19 +158,14 @@ function initTetris() {
             for (let x = 0; x < COLS; x++) {
                 if (board[y][x]) {
                     ctx.fillStyle = board[y][x];
-                    ctx.shadowColor = board[y][x];
-                    ctx.shadowBlur = 10;
                     ctx.fillRect(x * BLOCK_SIZE + 1, y * BLOCK_SIZE + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
                 }
             }
         }
-        ctx.shadowBlur = 0;
         
         // Draw current piece
         if (currentPiece && !gameOver) {
             ctx.fillStyle = currentColor;
-            ctx.shadowColor = currentColor;
-            ctx.shadowBlur = 15;
             for (let y = 0; y < currentPiece.length; y++) {
                 for (let x = 0; x < currentPiece[y].length; x++) {
                     if (currentPiece[y][x]) {
@@ -183,19 +178,19 @@ function initTetris() {
                     }
                 }
             }
-            ctx.shadowBlur = 0;
         }
         
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#ff00ff';
-            ctx.font = '24px "Press Start 2P"';
+            ctx.font = '11px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
+            ctx.fillText('GAME', canvas.width / 2, canvas.height / 2 - 12);
+            ctx.fillText('OVER', canvas.width / 2, canvas.height / 2 + 6);
             ctx.fillStyle = '#ffff00';
-            ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 40);
+            ctx.font = '6px "Press Start 2P"';
+            ctx.fillText('SPACE to restart', canvas.width / 2, canvas.height / 2 + 28);
             return;
         }
         
