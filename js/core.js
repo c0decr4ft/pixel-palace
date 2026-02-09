@@ -22,6 +22,74 @@ let gameLoop = null;
 let score = 0;
 let cleanupFunctions = [];
 
+// === PAUSE SYSTEM ===
+let gamePaused = false;
+let _pauseStart = 0;
+let _totalPaused = 0;
+let _lastRAFCallback = null;
+let _pausedRAFCallback = null;
+
+const _origPerfNow = performance.now.bind(performance);
+const _origRAF = window.requestAnimationFrame.bind(window);
+const _origCAF = window.cancelAnimationFrame.bind(window);
+
+/* Patch performance.now() so paused time is invisible to game loops.
+   This prevents a massive dt spike when resuming. */
+performance.now = function() { return _origPerfNow() - _totalPaused; };
+
+/* Patch requestAnimationFrame so we can freeze / resume the game loop. */
+window.requestAnimationFrame = function(cb) {
+    _lastRAFCallback = cb;
+    if (gamePaused) { _pausedRAFCallback = cb; return -1; }
+    return _origRAF(cb);
+};
+window.cancelAnimationFrame = function(id) { return _origCAF(id); };
+
+const pauseOverlay = document.getElementById('pauseOverlay');
+const pauseBtn = document.getElementById('pauseBtn');
+
+function togglePause() {
+    if (!gameContainer || !gameContainer.classList.contains('active')) return;
+    if (gamePaused) resumeGame(); else pauseGame();
+}
+
+function pauseGame() {
+    if (gamePaused) return;
+    gamePaused = true;
+    _pauseStart = _origPerfNow();
+    _pausedRAFCallback = _lastRAFCallback;
+    if (gameLoop) { _origCAF(gameLoop); }
+    if (pauseOverlay) pauseOverlay.classList.add('visible');
+}
+
+function resumeGame() {
+    if (!gamePaused) return;
+    _totalPaused += _origPerfNow() - _pauseStart;
+    gamePaused = false;
+    if (pauseOverlay) pauseOverlay.classList.remove('visible');
+    if (_pausedRAFCallback) {
+        const cb = _pausedRAFCallback;
+        _pausedRAFCallback = null;
+        gameLoop = _origRAF(cb);
+    }
+}
+
+/* Escape key toggles pause */
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && gameContainer && gameContainer.classList.contains('active')) {
+        e.preventDefault();
+        togglePause();
+    }
+});
+
+/* Pause button in game header */
+if (pauseBtn) pauseBtn.addEventListener('click', togglePause);
+
+/* Tap the overlay to resume */
+if (pauseOverlay) pauseOverlay.addEventListener('click', function() {
+    if (gamePaused) resumeGame();
+});
+
 // Sound Effects (Web Audio API)
 let audioCtx = null;
 try {
@@ -231,9 +299,6 @@ const GAME_DISPLAY_NAMES = {
     memory: 'MEMORY',
     flappy: 'FLAPPY PIXEL',
     '2048': '2048',
-    simonsays: 'SIMON SAYS',
-    pacman: 'PAC-MAN',
-    frogger: 'FROGGER'
 };
 
 function startGame(gameName) {
@@ -269,9 +334,6 @@ function startGame(gameName) {
         case 'memory': initMemory(); break;
         case 'flappy': initFlappy(); break;
         case '2048': init2048(); break;
-        case 'simonsays': initSimonSays(); break;
-        case 'pacman': initPacman(); break;
-        case 'frogger': initFrogger(); break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
             lobby.style.display = 'block';
@@ -285,6 +347,13 @@ function startGame(gameName) {
 }
 
 function stopGame() {
+    /* Clear pause state if active */
+    if (gamePaused) {
+        _totalPaused += _origPerfNow() - _pauseStart;
+        gamePaused = false;
+        _pausedRAFCallback = null;
+    }
+    if (pauseOverlay) pauseOverlay.classList.remove('visible');
     if (gameLoop) {
         cancelAnimationFrame(gameLoop);
         gameLoop = null;
@@ -348,8 +417,11 @@ function getEventCanvasCoords(e) {
     return { x: (t.clientX - rect.left) * scaleX, y: (t.clientY - rect.top) * scaleY };
 }
 
+let _joystickCleanup = null;
+
 function clearTouchControls() {
     touchHandlerMap = {};
+    if (_joystickCleanup) { _joystickCleanup(); _joystickCleanup = null; }
     if (touchControls) {
         touchControls.innerHTML = '';
         touchControls.classList.remove('has-buttons');
@@ -359,65 +431,107 @@ function clearTouchControls() {
 function addTouchDpad(options) {
     if (!touchControls) return;
     const { onLeft, onRight, onUp, onDown, onAction, actionLabel } = options;
+    /* Clean up previous joystick listeners if any */
+    if (_joystickCleanup) { _joystickCleanup(); _joystickCleanup = null; }
     touchControls.innerHTML = '';
+
     const wrap = document.createElement('div');
-    wrap.className = 'touch-dpad-wrap';
-    const makeBtn = (label, handler) => {
+    wrap.className = 'touch-joystick-wrap';
+
+    /* ---- Joystick ---- */
+    const base = document.createElement('div');
+    base.className = 'touch-joystick-base';
+    const thumb = document.createElement('div');
+    thumb.className = 'touch-joystick-thumb';
+    base.appendChild(thumb);
+    wrap.appendChild(base);
+
+    /* ---- Optional action button ---- */
+    if (onAction && actionLabel) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'touch-btn';
-        btn.innerHTML = label;
-        btn.setAttribute('aria-label', label);
-        const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
-        const onTouchStart = (e) => {
-            prevent(e);
-            if (e.changedTouches && e.changedTouches.length) {
-                touchHandlerMap[e.changedTouches[0].identifier] = handler;
-            }
-            handler(true);
-        };
-        const onTouchEnd = (e) => {
-            prevent(e);
-            if (e.changedTouches && e.changedTouches.length) {
-                delete touchHandlerMap[e.changedTouches[0].identifier];
-            }
-            handler(false);
-        };
-        btn.addEventListener('touchstart', onTouchStart, { passive: false });
-        btn.addEventListener('touchend', onTouchEnd, { passive: false });
-        btn.addEventListener('touchcancel', onTouchEnd, { passive: false });
-        btn.addEventListener('mousedown', (e) => { e.preventDefault(); handler(true); });
-        btn.addEventListener('mouseup', () => handler(false));
-        btn.addEventListener('mouseleave', () => handler(false));
-        return btn;
-    };
-    const dpad = document.createElement('div');
-    dpad.className = 'touch-dpad';
-    if (onUp) {
-        const row = document.createElement('div');
-        row.className = 'touch-dpad-row';
-        row.appendChild(makeBtn('<span class="arrow">↑</span>', onUp));
-        dpad.appendChild(row);
+        btn.className = 'touch-btn action-btn';
+        btn.innerHTML = actionLabel;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); onAction(); }, { passive: false });
+        wrap.appendChild(btn);
     }
-    if (onLeft || onRight) {
-        const row = document.createElement('div');
-        row.className = 'touch-dpad-row';
-        if (onLeft) row.appendChild(makeBtn('<span class="arrow">←</span>', onLeft));
-        if (onRight) row.appendChild(makeBtn('<span class="arrow">→</span>', onRight));
-        dpad.appendChild(row);
-    }
-    if (onDown) {
-        const row = document.createElement('div');
-        row.className = 'touch-dpad-row';
-        row.appendChild(makeBtn('<span class="arrow">↓</span>', onDown));
-        dpad.appendChild(row);
-    }
-    wrap.appendChild(dpad);
-    if (onAction && actionLabel) {
-        const actionBtn = makeBtn(actionLabel, (pressed) => { if (pressed) onAction(); });
-        actionBtn.className = 'touch-btn action-btn';
-        wrap.appendChild(actionBtn);
-    }
+
     touchControls.appendChild(wrap);
     touchControls.classList.add('has-buttons');
+
+    /* ---- Joystick touch handling ---- */
+    let activeId = null;
+    let cx = 0, cy = 0;
+    const dirs = { up: false, down: false, left: false, right: false };
+    const DEAD = 12;
+    const MAX = 38;
+
+    function fire(key, handler, val) {
+        if (dirs[key] !== val) { dirs[key] = val; if (handler) handler(val); }
+    }
+
+    function update(dx, dy) {
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < DEAD) {
+            thumb.style.transform = 'translate(-50%,-50%)';
+            fire('up', onUp, false); fire('down', onDown, false);
+            fire('left', onLeft, false); fire('right', onRight, false);
+            return;
+        }
+        const c = Math.min(dist, MAX);
+        const a = Math.atan2(dy, dx);
+        const tx = Math.cos(a) * c;
+        const ty = Math.sin(a) * c;
+        thumb.style.transform = 'translate(calc(-50% + ' + tx + 'px),calc(-50% + ' + ty + 'px))';
+        const deg = a * 180 / Math.PI;
+        fire('right', onRight, deg > -67.5 && deg < 67.5);
+        fire('down', onDown, deg > 22.5 && deg < 157.5);
+        fire('left', onLeft, deg > 112.5 || deg < -112.5);
+        fire('up', onUp, deg > -157.5 && deg < -22.5);
+    }
+
+    function onTS(e) {
+        e.preventDefault();
+        if (activeId !== null) return;
+        const t = e.changedTouches[0];
+        activeId = t.identifier;
+        const r = base.getBoundingClientRect();
+        cx = r.left + r.width / 2;
+        cy = r.top + r.height / 2;
+        update(t.clientX - cx, t.clientY - cy);
+    }
+    function onTM(e) {
+        if (activeId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeId) {
+                e.preventDefault();
+                update(e.changedTouches[i].clientX - cx, e.changedTouches[i].clientY - cy);
+                return;
+            }
+        }
+    }
+    function onTE(e) {
+        if (activeId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeId) {
+                activeId = null;
+                update(0, 0);
+                return;
+            }
+        }
+    }
+
+    base.addEventListener('touchstart', onTS, { passive: false });
+    document.addEventListener('touchmove', onTM, { passive: false });
+    document.addEventListener('touchend', onTE, { passive: false });
+    document.addEventListener('touchcancel', onTE, { passive: false });
+
+    _joystickCleanup = () => {
+        document.removeEventListener('touchmove', onTM);
+        document.removeEventListener('touchend', onTE);
+        document.removeEventListener('touchcancel', onTE);
+    };
+    cleanupFunctions.push(() => {
+        if (_joystickCleanup) { _joystickCleanup(); _joystickCleanup = null; }
+    });
 }

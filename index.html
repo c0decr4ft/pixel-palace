@@ -159,48 +159,6 @@
                 <button class="play-btn">PLAY</button>
             </div>
 
-            <div class="game-cabinet" data-game="simonsays" data-category="arcade">
-                <div class="cabinet-screen">
-                    <div class="screen-content simon-preview">
-                        <div class="simon-demo"></div>
-                    </div>
-                </div>
-                <div class="cabinet-info">
-                    <h3>SIMON SAYS</h3>
-                    <p>Repeat the Sequence</p>
-                    <div class="difficulty">★★☆☆☆</div>
-                </div>
-                <button class="play-btn">PLAY</button>
-            </div>
-
-            <div class="game-cabinet" data-game="pacman" data-category="arcade">
-                <div class="cabinet-screen">
-                    <div class="screen-content pacman-preview">
-                        <div class="pacman-demo"></div>
-                    </div>
-                </div>
-                <div class="cabinet-info">
-                    <h3>PAC-MAN</h3>
-                    <p>Eat Dots, Avoid Ghosts</p>
-                    <div class="difficulty">★★★★☆</div>
-                </div>
-                <button class="play-btn">PLAY</button>
-            </div>
-
-            <div class="game-cabinet" data-game="frogger" data-category="arcade">
-                <div class="cabinet-screen">
-                    <div class="screen-content frogger-preview">
-                        <div class="frogger-demo"></div>
-                    </div>
-                </div>
-                <div class="cabinet-info">
-                    <h3>FROGGER</h3>
-                    <p>Cross the Road</p>
-                    <div class="difficulty">★★★☆☆</div>
-                </div>
-                <button class="play-btn">PLAY</button>
-            </div>
-
         </div>
     </main>
 
@@ -208,7 +166,15 @@
         <div class="game-header">
             <button class="back-btn" id="backBtn">← LOBBY</button>
             <div class="game-title" id="currentGameTitle">GAME</div>
+            <button class="pause-btn" id="pauseBtn" title="Pause (Esc)">⏸</button>
             <div class="score-display">SCORE: <span id="scoreValue">0</span></div>
+        </div>
+        <div class="pause-overlay" id="pauseOverlay">
+            <div class="pause-content">
+                <div class="pause-icon">⏸</div>
+                <h2>PAUSED</h2>
+                <p>Press ESC or tap to resume</p>
+            </div>
         </div>
         <div class="game-play-area">
             <canvas id="gameCanvas"></canvas>
@@ -247,8 +213,5 @@
     <script src="js/games/memory.js"></script>
     <script src="js/games/flappy.js"></script>
     <script src="js/games/2048.js"></script>
-    <script src="js/games/simonsays.js"></script>
-    <script src="js/games/frogger.js"></script>
-    <script src="js/games/pacman.js"></script>
 </body>
 </html>
