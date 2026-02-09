@@ -297,6 +297,7 @@ const GAME_DISPLAY_NAMES = {
     breakout: 'BREAKOUT',
     spaceinvaders: 'SPACE INVADERS',
     memory: 'MEMORY',
+    flappy: 'FLAPPY PIXEL',
     '2048': '2048',
 };
 
@@ -331,6 +332,7 @@ function startGame(gameName) {
         case 'breakout': initBreakout(); break;
         case 'spaceinvaders': initSpaceInvaders(); break;
         case 'memory': initMemory(); break;
+        case 'flappy': initFlappy(); break;
         case '2048': init2048(); break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
@@ -428,7 +430,7 @@ function clearTouchControls() {
 
 function addTouchDpad(options) {
     if (!touchControls) return;
-    const { onLeft, onRight, onUp, onDown, onAction, actionLabel } = options;
+    const { onLeft, onRight, onUp, onDown, onAction, onActionEnd, actionLabel } = options;
     /* Clean up previous joystick listeners if any */
     if (_joystickCleanup) { _joystickCleanup(); _joystickCleanup = null; }
     touchControls.innerHTML = '';
@@ -451,6 +453,10 @@ function addTouchDpad(options) {
         btn.className = 'touch-btn action-btn';
         btn.innerHTML = actionLabel;
         btn.addEventListener('touchstart', (e) => { e.preventDefault(); onAction(); }, { passive: false });
+        if (onActionEnd) {
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); onActionEnd(); }, { passive: false });
+            btn.addEventListener('touchcancel', (e) => { onActionEnd(); }, { passive: false });
+        }
         wrap.appendChild(btn);
     }
 

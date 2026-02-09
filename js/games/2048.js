@@ -3,12 +3,12 @@ function init2048() {
     currentGameTitle.textContent = '2048';
     gameControls.innerHTML = 'Arrow Keys or D-pad to move tiles';
     
-    canvas.width = 320;
-    canvas.height = 320;
+    canvas.width = 260;
+    canvas.height = 260;
     
     const gridSize = 4;
-    const tileSize = 70;
-    const padding = 8;
+    const tileSize = 56;
+    const padding = 7;
     
     let grid = Array(gridSize).fill().map(() => Array(gridSize).fill(0));
     let gameOver = false;
@@ -203,7 +203,7 @@ function init2048() {
                 
                 if (value > 0) {
                     ctx.fillStyle = textColors[value] || '#f9f6f2';
-                    const fontSize = value >= 1024 ? 20 : value >= 128 ? 24 : 28;
+                    const fontSize = value >= 1024 ? 15 : value >= 128 ? 19 : 22;
                     ctx.font = `bold ${fontSize}px Orbitron`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';

@@ -3,7 +3,7 @@ function initMemory() {
     currentGameTitle.textContent = 'MEMORY';
     gameControls.innerHTML = 'Click cards to match pairs';
     
-    canvas.width = 500;
+    canvas.width = 400;
     canvas.height = 400;
     
     const symbols = ['★', '♦', '♣', '♥', '●', '■', '▲', '◆'];
@@ -12,9 +12,9 @@ function initMemory() {
     let cards = [];
     const rows = 4;
     const cols = 4;
-    const cardWidth = 100;
+    const cardWidth = 80;
     const cardHeight = 80;
-    const padding = 15;
+    const padding = 12;
     
     // Create pairs
     let pairs = [];
@@ -31,8 +31,8 @@ function initMemory() {
         for (let c = 0; c < cols; c++) {
             const pair = pairs[r * cols + c];
             cards.push({
-                x: c * (cardWidth + padding) + 25,
-                y: r * (cardHeight + padding) + 20,
+                x: c * (cardWidth + padding) + 22,
+                y: r * (cardHeight + padding) + 22,
                 symbol: pair.symbol,
                 color: pair.color,
                 flipped: false,
@@ -118,7 +118,7 @@ function initMemory() {
                 ctx.strokeRect(card.x, card.y, cardWidth, cardHeight);
                 
                 ctx.fillStyle = card.color;
-                ctx.font = '36px Arial';
+                ctx.font = '30px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(card.symbol, card.x + cardWidth/2, card.y + cardHeight/2);

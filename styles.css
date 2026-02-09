@@ -465,21 +465,49 @@ body {
 
 .space-preview {
     flex-direction: column;
+    gap: 6px;
+    background: #050510;
+    padding: 10px;
 }
 
-.space-demo {
-    font-size: 2rem;
-    animation: alienWalk 1s steps(2) infinite;
-    filter: drop-shadow(0 0 10px var(--neon-green));
+.space-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    animation: alienMarch 1.6s steps(2) infinite;
 }
 
-.space-demo::before {
-    content: '👾';
+.space-inv {
+    display: block;
+    width: 18px;
+    height: 14px;
+    image-rendering: pixelated;
 }
 
-@keyframes alienWalk {
-    0%, 100% { transform: translateX(-20px); }
-    50% { transform: translateX(20px); }
+.space-inv.inv-a {
+    background: #ff4444;
+    clip-path: polygon(25% 0%, 75% 0%, 100% 30%, 100% 70%, 75% 100%, 60% 70%, 40% 70%, 25% 100%, 0% 70%, 0% 30%);
+}
+.space-inv.inv-b {
+    background: #00ff88;
+    clip-path: polygon(10% 0%, 90% 0%, 100% 40%, 80% 100%, 60% 60%, 40% 60%, 20% 100%, 0% 40%);
+}
+.space-inv.inv-c {
+    background: #00ccff;
+    clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%);
+}
+
+.space-ship {
+    width: 20px;
+    height: 12px;
+    background: #00ffcc;
+    margin: 4px auto 0;
+    clip-path: polygon(50% 0%, 35% 40%, 0% 100%, 100% 100%, 65% 40%);
+}
+
+@keyframes alienMarch {
+    0%, 100% { transform: translateX(-10px); }
+    50% { transform: translateX(10px); }
 }
 
 .memory-preview {
@@ -515,7 +543,37 @@ body {
     50%, 95% { transform: rotateY(180deg); }
 }
 
-
+.flappy-preview {
+    background: linear-gradient(180deg, #1a0a2e 0%, #0d1b3e 70%, #1a3a1a 90%, #2d8b2d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+.flappy-bird {
+    width: 22px;
+    height: 16px;
+    background: #ffcc00;
+    border-radius: 4px;
+    box-shadow: 0 0 12px rgba(255, 204, 0, 0.6);
+    position: absolute;
+    left: 30%;
+    animation: flappyBob 0.6s ease-in-out infinite;
+}
+.flappy-pipe {
+    position: absolute;
+    right: 25%;
+    width: 14px;
+    height: 100%;
+    background: linear-gradient(90deg, #0d6e0d, #10b010 30%, #0d6e0d);
+    box-shadow: 0 0 8px rgba(16, 176, 16, 0.4);
+    clip-path: polygon(0 0, 100% 0, 100% 35%, 120% 35%, 120% 40%, -20% 40%, -20% 35%, 0 35%, 0 65%, -20% 65%, -20% 70%, 120% 70%, 120% 65%, 100% 65%, 100% 100%, 0 100%);
+}
+@keyframes flappyBob {
+    0%, 100% { transform: translateY(8px) rotate(10deg); }
+    50% { transform: translateY(-8px) rotate(-10deg); }
+}
 
 .puzzle-preview {
     background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);

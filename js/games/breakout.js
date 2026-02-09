@@ -3,19 +3,19 @@ function initBreakout() {
     currentGameTitle.textContent = 'BREAKOUT';
     gameControls.innerHTML = 'Arrow Keys or Mouse to move paddle';
     
-    canvas.width = 600;
+    canvas.width = 480;
     canvas.height = 500;
     
-    const paddleWidth = 100;
+    const paddleWidth = 80;
     const paddleHeight = 15;
     const ballSize = 10;
     const brickRows = 5;
     const brickCols = 10;
-    const brickWidth = 55;
+    const brickWidth = 42;
     const brickHeight = 20;
-    const brickPadding = 5;
+    const brickPadding = 4;
     const brickOffsetTop = 50;
-    const brickOffsetLeft = 20;
+    const brickOffsetLeft = 10;
     
     let paddleX = canvas.width / 2 - paddleWidth / 2;
     let ballX = canvas.width / 2;
