@@ -3,17 +3,17 @@ function initFlappy() {
     currentGameTitle.textContent = 'FLAPPY PIXEL';
     gameControls.innerHTML = 'SPACE or Click to flap';
     
-    canvas.width = 170;
-    canvas.height = 300;
+    canvas.width = 200;
+    canvas.height = 350;
     
-    const birdSize = 24;
+    const birdSize = 20;
     let birdY = canvas.height / 2;
     let birdVelocity = 0;
     const gravity = 0.5;
     const flapStrength = -10;
     
-    const pipeWidth = 48;
-    const pipeGap = 180;
+    const pipeWidth = 40;
+    const pipeGap = 130;
     let pipes = [];
     let gameOver = false;
     let started = false;
