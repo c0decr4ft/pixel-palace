@@ -141,7 +141,10 @@ function initSnake() {
         
         const gameSpeed = currentSpeed();
         if (currentTime - lastTime < gameSpeed) return;
-        lastTime += gameSpeed;
+        // If we fell way behind (e.g. device rotation, tab switch), skip ahead
+        // instead of fast-forwarding many ticks at once
+        if (currentTime - lastTime > gameSpeed * 2) lastTime = currentTime;
+        else lastTime += gameSpeed;
         
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';

@@ -52,7 +52,7 @@ function initPong() {
     let wheelTouchId = null;
     let wheelLastY = 0;
     let wheelOffset = 0;       // cumulative vertical px offset for tick animation
-    const WHEEL_DEAD = 2;      // px dead zone per move event
+    const WHEEL_DEAD = 6;      // px dead zone per move event
 
     function onWheelStart(e) {
         e.preventDefault();
