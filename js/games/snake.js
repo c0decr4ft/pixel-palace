@@ -61,7 +61,7 @@ function initSnake() {
     });
     
     let lastTime = 0;
-    const gameSpeed = 150;
+    const gameSpeed = 200;
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);

@@ -20,8 +20,8 @@ function initBreakout() {
     let paddleX = canvas.width / 2 - paddleWidth / 2;
     let ballX = canvas.width / 2;
     let ballY = canvas.height - 50;
-    let ballSpeedX = 4;
-    let ballSpeedY = -4;
+    let ballSpeedX = 2.5;
+    let ballSpeedY = -2.5;
     let gameOver = false;
     let win = false;
     
@@ -75,7 +75,7 @@ function initBreakout() {
     }, { passive: false });
     
     let lastTime = performance.now();
-    const PADDLE_SPEED = 480;
+    const PADDLE_SPEED = 320;
     const BALL_DT = 1/60;
     const MAX_BALL_STEPS = 5;
     let ballAccum = 0;
@@ -116,7 +116,7 @@ function initBreakout() {
                     ballX >= paddleX && ballX <= paddleX + paddleWidth) {
                     ballSpeedY = -Math.abs(ballSpeedY);
                     const hitPos = (ballX - paddleX) / paddleWidth;
-                    ballSpeedX = (hitPos - 0.5) * 10;
+                    ballSpeedX = (hitPos - 0.5) * 6;
                     ballY = canvas.height - paddleHeight - 20 - ballSize - 1;
                     playSound(500, 0.1);
                 }

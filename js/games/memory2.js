@@ -3,8 +3,8 @@ function initMemory2() {
     currentGameTitle.textContent = 'MEMORY';
     gameControls.innerHTML = 'Click tiles to reveal & match pairs';
 
-    canvas.width = 230;
-    canvas.height = 230;
+    canvas.width = 460;
+    canvas.height = 460;
 
     const symbols = ['⚡', '☆', '◈', '⬡', '⊕', '♠', '✧', '⚙', '☄', '♜'];
     const colors = [
@@ -16,9 +16,9 @@ function initMemory2() {
     let cards = [];
     const rows = 4;
     const cols = 5;
-    const cardW = 38;
-    const cardH = 46;
-    const pad = 6;
+    const cardW = 76;
+    const cardH = 92;
+    const pad = 12;
     const gridW = cols * (cardW + pad) - pad;
     const gridH = rows * (cardH + pad) - pad;
     const offX = Math.floor((canvas.width - gridW) / 2);
@@ -59,14 +59,36 @@ function initMemory2() {
     let won = false;
     let wonTime = 0;
 
+    let flipTimer = null;
+
+    function getCanvasCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+        let cx, cy;
+        if (e.touches && e.touches.length) {
+            cx = e.touches[0].clientX;
+            cy = e.touches[0].clientY;
+        } else {
+            cx = e.clientX;
+            cy = e.clientY;
+        }
+        /* Account for CSS border: getBoundingClientRect includes it,
+           but canvas content starts after the border. */
+        const style = getComputedStyle(canvas);
+        const bL = parseFloat(style.borderLeftWidth) || 0;
+        const bT = parseFloat(style.borderTopWidth) || 0;
+        const contentW = rect.width - bL - (parseFloat(style.borderRightWidth) || 0);
+        const contentH = rect.height - bT - (parseFloat(style.borderBottomWidth) || 0);
+        if (contentW <= 0 || contentH <= 0) return null;
+        return {
+            x: (cx - rect.left - bL) * (canvas.width / contentW),
+            y: (cy - rect.top - bT) * (canvas.height / contentH)
+        };
+    }
+
     function handleTap(e) {
         if (!canClick || won) return;
-        const coords = e.touches ? getEventCanvasCoords(e) : (() => {
-            const rect = canvas.getBoundingClientRect();
-            if (!rect.width || !rect.height) return null;
-            return { x: (e.clientX - rect.left) * (canvas.width / rect.width),
-                     y: (e.clientY - rect.top) * (canvas.height / rect.height) };
-        })();
+        const coords = getCanvasCoords(e);
         if (!coords) return;
 
         for (let card of cards) {
@@ -100,11 +122,12 @@ function initMemory2() {
                         }
                     } else {
                         // No match — flip back after delay
-                        setTimeout(() => {
+                        flipTimer = setTimeout(() => {
                             flippedCards[0].flipped = false;
                             flippedCards[1].flipped = false;
                             flippedCards = [];
                             canClick = true;
+                            flipTimer = null;
                         }, 600);
                     }
                 }
@@ -112,14 +135,22 @@ function initMemory2() {
             }
         }
     }
-    canvas.onclick = (e) => handleTap(e);
-    canvas.addEventListener('touchstart', (e) => {
+
+    function onTouchTap(e) {
         if (e.touches.length) { e.preventDefault(); handleTap(e); }
-    }, { passive: false });
+    }
+    canvas.onclick = (e) => handleTap(e);
+    canvas.addEventListener('touchstart', onTouchTap, { passive: false });
+
+    // Proper cleanup so listeners don't leak between game restarts
+    cleanupFunctions.push(function() {
+        canvas.removeEventListener('touchstart', onTouchTap);
+        if (flipTimer) { clearTimeout(flipTimer); flipTimer = null; }
+    });
 
     /* Scrolling matrix rain columns (decorative) */
     const rainCols = [];
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 24; i++) {
         rainCols.push({
             x: Math.random() * canvas.width,
             y: Math.random() * canvas.height,
@@ -140,7 +171,7 @@ function initMemory2() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Subtle matrix rain
-        ctx.font = '10px monospace';
+        ctx.font = '14px monospace';
         ctx.fillStyle = 'rgba(0,255,65,0.07)';
         for (const col of rainCols) {
             col.y += col.speed * dt;
@@ -160,18 +191,18 @@ function initMemory2() {
                 // Glow behind
                 ctx.globalAlpha = glow;
                 ctx.fillStyle = card.color;
-                ctx.fillRect(card.x - 2, card.y - 2, cardW + 4, cardH + 4);
+                ctx.fillRect(card.x - 3, card.y - 3, cardW + 6, cardH + 6);
                 ctx.globalAlpha = 1;
                 // Card bg
                 ctx.fillStyle = '#0a1a0a';
                 ctx.fillRect(card.x, card.y, cardW, cardH);
                 // Border
                 ctx.strokeStyle = card.color;
-                ctx.lineWidth = card.matched ? 2 : 1;
+                ctx.lineWidth = card.matched ? 3 : 1.5;
                 ctx.strokeRect(card.x, card.y, cardW, cardH);
                 // Symbol
                 ctx.fillStyle = card.color;
-                ctx.font = '16px Arial';
+                ctx.font = '32px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(card.symbol, card.x + cardW / 2, card.y + cardH / 2);
@@ -184,18 +215,18 @@ function initMemory2() {
                 ctx.strokeRect(card.x, card.y, cardW, cardH);
                 // Inner grid pattern
                 ctx.strokeStyle = 'rgba(0,255,65,0.12)';
-                ctx.lineWidth = 0.5;
+                ctx.lineWidth = 1;
                 const cx = card.x + cardW / 2;
                 const cy = card.y + cardH / 2;
                 ctx.beginPath();
-                ctx.moveTo(card.x + 6, cy); ctx.lineTo(card.x + cardW - 6, cy);
-                ctx.moveTo(cx, card.y + 6); ctx.lineTo(cx, card.y + cardH - 6);
+                ctx.moveTo(card.x + 12, cy); ctx.lineTo(card.x + cardW - 12, cy);
+                ctx.moveTo(cx, card.y + 12); ctx.lineTo(cx, card.y + cardH - 12);
                 ctx.stroke();
                 // Center dot
                 ctx.fillStyle = '#00ff41';
                 ctx.globalAlpha = 0.3;
                 ctx.beginPath();
-                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
             }
@@ -203,12 +234,12 @@ function initMemory2() {
 
         // HUD: moves counter
         ctx.fillStyle = '#00ff41';
-        ctx.font = '9px "Press Start 2P"';
+        ctx.font = '14px "Press Start 2P"';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText('MOVES: ' + moves, 4, 3);
+        ctx.fillText('MOVES: ' + moves, 8, 6);
         ctx.textAlign = 'right';
-        ctx.fillText(matchedCount / 2 + '/' + (cards.length / 2), canvas.width - 4, 3);
+        ctx.fillText(matchedCount / 2 + '/' + (cards.length / 2), canvas.width - 8, 6);
 
         // Win overlay
         if (won) {
@@ -218,11 +249,11 @@ function initMemory2() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#00ff41';
-            ctx.font = '18px "Press Start 2P"';
-            ctx.fillText('DECODED!', canvas.width / 2, canvas.height / 2 - 16);
+            ctx.font = '28px "Press Start 2P"';
+            ctx.fillText('DECODED!', canvas.width / 2, canvas.height / 2 - 24);
             ctx.fillStyle = '#7df9ff';
-            ctx.font = '9px "Press Start 2P"';
-            ctx.fillText(moves + ' moves', canvas.width / 2, canvas.height / 2 + 14);
+            ctx.font = '14px "Press Start 2P"';
+            ctx.fillText(moves + ' moves', canvas.width / 2, canvas.height / 2 + 20);
         }
     }
 

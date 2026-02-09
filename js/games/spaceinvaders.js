@@ -140,9 +140,9 @@ function initSpaceInvaders() {
 
     let lastEnemyShot = 0;
     let lastTime = performance.now();
-    const PLAYER_SPEED = 360;
-    const BULLET_SPEED = 480;
-    const ENEMY_BULLET_SPEED = 300;
+    const PLAYER_SPEED = 240;
+    const BULLET_SPEED = 320;
+    const ENEMY_BULLET_SPEED = 180;
     const STEP_DT = 1/60;
     const MAX_STEPS = 5;
     let accum = 0;

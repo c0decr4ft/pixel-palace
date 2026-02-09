@@ -179,23 +179,26 @@ function initTron() {
             const h2y = c2.y + TRON_DY[c2.dir] * interp;
             if (c1.alive && c1.path) drawTrailLine(c1.path, '#00ffff', h1x, h1y);
             if (c2.alive && c2.path) drawTrailLine(c2.path, '#ff00ff', h2x, h2y);
+            /* Bike heads: layered rects for glow (no shadowBlur — expensive) */
             if (c1.alive) {
                 const dx = h1x * TRON_CELL + TRON_BIKE_PAD;
                 const dy = h1y * TRON_CELL + TRON_BIKE_PAD;
+                ctx.globalAlpha = 0.15;
                 ctx.fillStyle = '#00ffff';
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 8;
+                ctx.fillRect(dx - 2, dy - 2, bikeSize + 4, bikeSize + 4);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#00ffff';
                 ctx.fillRect(dx, dy, bikeSize, bikeSize);
-                ctx.shadowBlur = 0;
             }
             if (c2.alive) {
                 const dx = h2x * TRON_CELL + TRON_BIKE_PAD;
                 const dy = h2y * TRON_CELL + TRON_BIKE_PAD;
+                ctx.globalAlpha = 0.15;
                 ctx.fillStyle = '#ff00ff';
-                ctx.shadowColor = '#ff00ff';
-                ctx.shadowBlur = 8;
+                ctx.fillRect(dx - 2, dy - 2, bikeSize + 4, bikeSize + 4);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#ff00ff';
                 ctx.fillRect(dx, dy, bikeSize, bikeSize);
-                ctx.shadowBlur = 0;
             }
         }
         gameLoop = requestAnimationFrame(update);
@@ -311,12 +314,20 @@ function initTron() {
         /* Delta tracking: how many path points already sent */
         let sentP1Idx = p1.path.length;
         let sentP2Idx = p2.path.length;
-        /* Joiner interpolation: timestamp of last state update */
-        let lastStateTime = performance.now();
+        /* Joiner interpolation: timestamp of the last actual position change
+           (NOT every network message — the host sends every 50ms but bikes move
+            every 80ms, so many messages carry the same position). */
+        let lastMoveTime = performance.now();
+        /* Track whether the host has sent any data different from last send */
+        let hostLastSentDir1 = p1.dir;
+        let hostLastSentDir2 = p2.dir;
         cleanupFunctions.push(() => { try { conn.close(); } catch(e){} try { if (peerRef) peerRef.destroy(); } catch(e){} });
         conn.on('data', (data) => {
             if (data.t === 'dir') remoteDir = data.d;
             if (data.t === 'u') {
+                /* Detect whether the head position actually moved */
+                const moved = (p1.x !== data.p1x || p1.y !== data.p1y ||
+                               p2.x !== data.p2x || p2.y !== data.p2y);
                 /* Compact delta update */
                 p1.x = data.p1x; p1.y = data.p1y; p1.dir = data.p1d; p1.alive = data.p1a;
                 p2.x = data.p2x; p2.y = data.p2y; p2.dir = data.p2d; p2.alive = data.p2a;
@@ -339,7 +350,9 @@ function initTron() {
                 }
                 gameOver = data.go;
                 winner = data.win || 0;
-                lastStateTime = performance.now();
+                /* Only reset interpolation timer when heads actually moved,
+                   so the smooth projection isn't interrupted by redundant updates */
+                if (moved) lastMoveTime = performance.now();
             }
         });
         conn.on('close', () => { disconnected = true; });
@@ -386,18 +399,27 @@ function initTron() {
                         playSound(winner === 1 ? 800 : 200, 0.2);
                     }
                 }
-                /* Send compact delta: only new path points since last send */
+                /* Send compact delta: only new path points since last send.
+                   Skip sending if nothing changed (same positions, same dirs,
+                   no new path points) to reduce network/GC overhead. */
                 if (now - lastSend >= SEND_INTERVAL_MS) {
-                    lastSend = now;
                     const n1 = sentP1Idx < p1.path.length ? p1.path.slice(sentP1Idx) : null;
                     const n2 = sentP2Idx < p2.path.length ? p2.path.slice(sentP2Idx) : null;
-                    sentP1Idx = p1.path.length;
-                    sentP2Idx = p2.path.length;
-                    conn.send({ t: 'u',
-                        p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive,
-                        p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive,
-                        n1: n1, n2: n2, go: gameOver, win: winner
-                    });
+                    const dirsChanged = (p1.dir !== hostLastSentDir1 || p2.dir !== hostLastSentDir2);
+                    if (n1 || n2 || dirsChanged || gameOver) {
+                        lastSend = now;
+                        sentP1Idx = p1.path.length;
+                        sentP2Idx = p2.path.length;
+                        hostLastSentDir1 = p1.dir;
+                        hostLastSentDir2 = p2.dir;
+                        conn.send({ t: 'u',
+                            p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive,
+                            p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive,
+                            n1: n1, n2: n2, go: gameOver, win: winner
+                        });
+                    } else {
+                        lastSend = now;
+                    }
                 }
             } else {
                 if (now - lastSend >= SEND_INTERVAL_MS) {
@@ -415,10 +437,11 @@ function initTron() {
                 ctx.fillText(winner === me ? 'YOU WIN' : 'YOU LOSE', TRON_W/2, TRON_H/2 - 10);
                 return;
             }
-            /* Interpolation: host uses local move timer, joiner uses time since last state update */
+            /* Interpolation: host uses local move timer,
+               joiner uses time since the last actual position change. */
             const interp = isHost
                 ? Math.min(1, (now - lastMove) / TRON_MOVE_MS)
-                : Math.min(1, (now - lastStateTime) / TRON_MOVE_MS);
+                : Math.min(1, (now - lastMoveTime) / TRON_MOVE_MS);
             const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
             const cx = TRON_CELL / 2;
             ctx.fillStyle = '#0a0a1a';

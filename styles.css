@@ -781,8 +781,9 @@ body {
     margin: 0;
 }
 
+/* Desktop: canvas at its natural pixel size (shrinks if needed, never grows) */
 .game-play-area #gameCanvas {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
     min-height: 0;
 }
@@ -893,6 +894,11 @@ body.game-active #gameCanvas {
         align-items: flex-end;
         pointer-events: none;
         touch-action: none;
+    }
+
+    /* Mobile: canvas grows to fill available space */
+    .game-play-area #gameCanvas {
+        flex: 1 1 0;
     }
 
     /* Canvas fills more of the screen since joystick is overlaid */
