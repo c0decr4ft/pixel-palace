@@ -80,12 +80,48 @@ function initSnake() {
     };
     document.addEventListener('keydown', handleKeyDown);
 
-    addTouchDpad({
-        onLeft: (pressed) => { if (pressed && direction.x !== 1) direction = { x: -1, y: 0 }; },
-        onRight: (pressed) => { if (pressed && direction.x !== -1) direction = { x: 1, y: 0 }; },
-        onUp: (pressed) => { if (pressed && direction.y !== 1) direction = { x: 0, y: -1 }; },
-        onDown: (pressed) => { if (pressed && direction.y !== -1) direction = { x: 0, y: 1 }; },
-        snapCardinal: true
+    /* Swipe gesture detection — swipe anywhere on screen to change direction */
+    let swipeStartX = null;
+    let swipeStartY = null;
+    const SWIPE_MIN = 20; // minimum px to count as a swipe
+
+    function onSwipeStart(e) {
+        if (e.touches.length !== 1) return;
+        e.preventDefault();
+        swipeStartX = e.touches[0].clientX;
+        swipeStartY = e.touches[0].clientY;
+    }
+    function onSwipeMove(e) {
+        if (swipeStartX !== null) e.preventDefault();
+    }
+    function onSwipeEnd(e) {
+        if (swipeStartX === null || swipeStartY === null) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - swipeStartX;
+        const dy = t.clientY - swipeStartY;
+        swipeStartX = null;
+        swipeStartY = null;
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        if (Math.max(ax, ay) < SWIPE_MIN) return;
+        if (ax >= ay) {
+            if (dx > 0 && direction.x !== -1) direction = { x: 1, y: 0 };
+            else if (dx < 0 && direction.x !== 1) direction = { x: -1, y: 0 };
+        } else {
+            if (dy > 0 && direction.y !== -1) direction = { x: 0, y: 1 };
+            else if (dy < 0 && direction.y !== 1) direction = { x: 0, y: -1 };
+        }
+    }
+
+    const swipeTarget = gameContainer || canvas;
+    swipeTarget.addEventListener('touchstart', onSwipeStart, { passive: false });
+    swipeTarget.addEventListener('touchmove', onSwipeMove, { passive: false });
+    swipeTarget.addEventListener('touchend', onSwipeEnd, { passive: false });
+
+    cleanupFunctions.push(() => {
+        swipeTarget.removeEventListener('touchstart', onSwipeStart);
+        swipeTarget.removeEventListener('touchmove', onSwipeMove);
+        swipeTarget.removeEventListener('touchend', onSwipeEnd);
     });
     
     let lastTime = 0;
