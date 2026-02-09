@@ -453,6 +453,7 @@ function startGame(gameName) {
     score = 0;
     updateScore(0);
     if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
+    clearTouchControls();
     if (audioCtx && arcadeMusicEnabled) {
         if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic(gameName)).catch(() => {});
         else startArcadeMusic(gameName);
