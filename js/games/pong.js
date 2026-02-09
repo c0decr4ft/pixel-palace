@@ -50,8 +50,8 @@ function initPong() {
 
     const wheelTicks = wheelWrap.querySelector('.pong-wheel-ticks');
     let wheelTouchId = null;
-    let wheelLastX = 0;
-    let wheelOffset = 0;       // cumulative horizontal px offset for tick animation
+    let wheelLastY = 0;
+    let wheelOffset = 0;       // cumulative vertical px offset for tick animation
     const WHEEL_DEAD = 2;      // px dead zone per move event
 
     function onWheelStart(e) {
@@ -59,7 +59,7 @@ function initPong() {
         if (wheelTouchId !== null) return;
         const t = e.changedTouches[0];
         wheelTouchId = t.identifier;
-        wheelLastX = t.clientX;
+        wheelLastY = t.clientY;
         wheelWrap.classList.add('active');
     }
     function onWheelMove(e) {
@@ -67,17 +67,17 @@ function initPong() {
         for (let i = 0; i < e.changedTouches.length; i++) {
             if (e.changedTouches[i].identifier === wheelTouchId) {
                 e.preventDefault();
-                const x = e.changedTouches[i].clientX;
-                const dx = x - wheelLastX;
-                wheelLastX = x;
-                // Scroll tick marks horizontally
-                wheelOffset += dx;
-                wheelTicks.style.transform = 'translateX(' + (wheelOffset % 18) + 'px)';
-                // Map horizontal drag to paddle: right = down, left = up
-                if (dx < -WHEEL_DEAD) {
+                const y = e.changedTouches[i].clientY;
+                const dy = y - wheelLastY;
+                wheelLastY = y;
+                // Scroll tick marks vertically
+                wheelOffset += dy;
+                wheelTicks.style.transform = 'translateY(' + (wheelOffset % 14) + 'px)';
+                // Drag up = paddle up, drag down = paddle down
+                if (dy < -WHEEL_DEAD) {
                     touchKeys['ArrowUp'] = true;
                     touchKeys['ArrowDown'] = false;
-                } else if (dx > WHEEL_DEAD) {
+                } else if (dy > WHEEL_DEAD) {
                     touchKeys['ArrowDown'] = true;
                     touchKeys['ArrowUp'] = false;
                 }
