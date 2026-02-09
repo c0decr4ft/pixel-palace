@@ -832,7 +832,7 @@ body.game-active #gameCanvas {
     box-shadow: none;
     border-radius: 0;
     will-change: contents;
-    contain: strict;
+    contain: layout paint;
 }
 
 .game-play-area {
