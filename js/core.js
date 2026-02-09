@@ -297,7 +297,6 @@ const GAME_DISPLAY_NAMES = {
     breakout: 'BREAKOUT',
     spaceinvaders: 'SPACE INVADERS',
     memory: 'MEMORY',
-    flappy: 'FLAPPY PIXEL',
     '2048': '2048',
 };
 
@@ -332,7 +331,6 @@ function startGame(gameName) {
         case 'breakout': initBreakout(); break;
         case 'spaceinvaders': initSpaceInvaders(); break;
         case 'memory': initMemory(); break;
-        case 'flappy': initFlappy(); break;
         case '2048': init2048(); break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
