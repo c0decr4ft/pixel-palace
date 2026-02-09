@@ -38,15 +38,19 @@ function initSnake() {
         
         switch(e.key) {
             case 'ArrowUp': case 'w': case 'W':
+                e.preventDefault();
                 if (direction.y !== 1) direction = {x: 0, y: -1};
                 break;
             case 'ArrowDown': case 's': case 'S':
+                e.preventDefault();
                 if (direction.y !== -1) direction = {x: 0, y: 1};
                 break;
             case 'ArrowLeft': case 'a': case 'A':
+                e.preventDefault();
                 if (direction.x !== 1) direction = {x: -1, y: 0};
                 break;
             case 'ArrowRight': case 'd': case 'D':
+                e.preventDefault();
                 if (direction.x !== -1) direction = {x: 1, y: 0};
                 break;
         }
@@ -57,7 +61,8 @@ function initSnake() {
         onLeft: (pressed) => { if (pressed && direction.x !== 1) direction = { x: -1, y: 0 }; },
         onRight: (pressed) => { if (pressed && direction.x !== -1) direction = { x: 1, y: 0 }; },
         onUp: (pressed) => { if (pressed && direction.y !== 1) direction = { x: 0, y: -1 }; },
-        onDown: (pressed) => { if (pressed && direction.y !== -1) direction = { x: 0, y: 1 }; }
+        onDown: (pressed) => { if (pressed && direction.y !== -1) direction = { x: 0, y: 1 }; },
+        snapCardinal: true
     });
     
     let lastTime = 0;
@@ -134,43 +139,53 @@ function initSnake() {
             ctx.stroke();
         }
         
+        // Food — glow via layered circles (no shadowBlur)
+        const fx = food.x * gridSize + gridSize / 2;
+        const fy = food.y * gridSize + gridSize / 2;
+        ctx.globalAlpha = 0.15;
         ctx.fillStyle = '#ff0000';
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(
-            food.x * gridSize + gridSize/2,
-            food.y * gridSize + gridSize/2,
-            gridSize/2 - 2,
-            0, Math.PI * 2
-        );
+        ctx.arc(fx, fy, gridSize / 2 + 2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(fx, fy, gridSize / 2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Food highlight
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#ff6666';
+        ctx.beginPath();
+        ctx.arc(fx - 2, fy - 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
         
-        snake.forEach((segment, index) => {
-            const gradient = ctx.createRadialGradient(
-                segment.x * gridSize + gridSize/2,
-                segment.y * gridSize + gridSize/2,
-                0,
-                segment.x * gridSize + gridSize/2,
-                segment.y * gridSize + gridSize/2,
-                gridSize/2
-            );
-            gradient.addColorStop(0, '#00ff00');
-            gradient.addColorStop(1, '#00aa00');
-            ctx.fillStyle = gradient;
-            ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = index === 0 ? 6 : 2;
-            ctx.fillRect(
-                segment.x * gridSize + 1,
-                segment.y * gridSize + 1,
-                gridSize - 2,
-                gridSize - 2
-            );
-        });
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
+        // Snake body — solid fills with head highlight (no shadowBlur/gradients)
+        for (let i = snake.length - 1; i >= 0; i--) {
+            const seg = snake[i];
+            const sx = seg.x * gridSize;
+            const sy = seg.y * gridSize;
+            if (i === 0) {
+                // Head glow
+                ctx.globalAlpha = 0.15;
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(sx - 1, sy - 1, gridSize + 2, gridSize + 2);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(sx + 1, sy + 1, gridSize - 2, gridSize - 2);
+                // Eyes
+                ctx.fillStyle = '#001100';
+                if (direction.x === 1) { ctx.fillRect(sx + 14, sy + 4, 3, 3); ctx.fillRect(sx + 14, sy + 13, 3, 3); }
+                else if (direction.x === -1) { ctx.fillRect(sx + 3, sy + 4, 3, 3); ctx.fillRect(sx + 3, sy + 13, 3, 3); }
+                else if (direction.y === -1) { ctx.fillRect(sx + 4, sy + 3, 3, 3); ctx.fillRect(sx + 13, sy + 3, 3, 3); }
+                else { ctx.fillRect(sx + 4, sy + 14, 3, 3); ctx.fillRect(sx + 13, sy + 14, 3, 3); }
+            } else {
+                // Body — slightly darker toward the tail
+                const bright = Math.max(100, 255 - i * 4);
+                ctx.fillStyle = 'rgb(0,' + bright + ',0)';
+                ctx.fillRect(sx + 1, sy + 1, gridSize - 2, gridSize - 2);
+            }
+        }
     }
     
     gameLoop = requestAnimationFrame(update);

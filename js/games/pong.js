@@ -36,11 +36,79 @@ function initPong() {
     document.addEventListener('keyup', handleKeyUp);
     
     const touchKeys = {};
-    addTouchDpad({
-        onUp: (p) => { touchKeys['ArrowUp'] = p; },
-        onDown: (p) => { touchKeys['ArrowDown'] = p; }
-    });
-    
+
+    /* ---- Jog-wheel touch control (replaces joystick for Pong) ---- */
+    const wheelWrap = document.createElement('div');
+    wheelWrap.className = 'pong-wheel-wrap';
+    wheelWrap.innerHTML =
+        '<div class="pong-wheel-disc">' +
+            '<div class="pong-wheel-ticks"></div>' +
+            '<div class="pong-wheel-grip"></div>' +
+        '</div>';
+    gameContainer.appendChild(wheelWrap);
+
+    const wheelDisc = wheelWrap.querySelector('.pong-wheel-ticks');
+    let wheelTouchId = null;
+    let wheelLastY = 0;
+    let wheelAngle = 0;
+    const WHEEL_DEAD = 3;  // px dead zone per move event
+
+    function onWheelStart(e) {
+        e.preventDefault();
+        if (wheelTouchId !== null) return;
+        const t = e.changedTouches[0];
+        wheelTouchId = t.identifier;
+        wheelLastY = t.clientY;
+        wheelWrap.classList.add('active');
+    }
+    function onWheelMove(e) {
+        if (wheelTouchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === wheelTouchId) {
+                e.preventDefault();
+                const y = e.changedTouches[i].clientY;
+                const dy = y - wheelLastY;
+                wheelLastY = y;
+                // Rotate the wheel visually (1.8 degrees per pixel of drag)
+                wheelAngle += dy * 1.8;
+                wheelDisc.style.transform = 'rotate(' + wheelAngle + 'deg)';
+                // Set paddle direction
+                if (dy < -WHEEL_DEAD) {
+                    touchKeys['ArrowUp'] = true;
+                    touchKeys['ArrowDown'] = false;
+                } else if (dy > WHEEL_DEAD) {
+                    touchKeys['ArrowDown'] = true;
+                    touchKeys['ArrowUp'] = false;
+                }
+                return;
+            }
+        }
+    }
+    function onWheelEnd(e) {
+        if (wheelTouchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === wheelTouchId) {
+                wheelTouchId = null;
+                touchKeys['ArrowUp'] = false;
+                touchKeys['ArrowDown'] = false;
+                wheelWrap.classList.remove('active');
+                return;
+            }
+        }
+    }
+    wheelWrap.addEventListener('touchstart', onWheelStart, { passive: false });
+    document.addEventListener('touchmove', onWheelMove, { passive: false });
+    document.addEventListener('touchend', onWheelEnd, { passive: false });
+    document.addEventListener('touchcancel', onWheelEnd, { passive: false });
+
+    function cleanupWheel() {
+        document.removeEventListener('touchmove', onWheelMove);
+        document.removeEventListener('touchend', onWheelEnd);
+        document.removeEventListener('touchcancel', onWheelEnd);
+        wheelWrap.remove();
+    }
+    cleanupFunctions.push(cleanupWheel);
+
     function clearPongKeys() {
         keys['ArrowUp'] = false; keys['ArrowDown'] = false;
         keys['w'] = false; keys['W'] = false; keys['s'] = false; keys['S'] = false;

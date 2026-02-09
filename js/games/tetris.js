@@ -123,7 +123,8 @@ function initTetris() {
         onLeft: (p) => { if (p && !gameOver && !collision(-1, 0)) pieceX--; },
         onRight: (p) => { if (p && !gameOver && !collision(1, 0)) pieceX++; },
         onDown: (p) => { if (p && !gameOver && !collision(0, 1)) pieceY++; },
-        onUp: (p) => { if (p && !gameOver) rotate(); }
+        onUp: (p) => { if (p && !gameOver) rotate(); },
+        snapCardinal: true
     });
     
     spawnPiece();

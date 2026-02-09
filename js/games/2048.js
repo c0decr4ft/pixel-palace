@@ -164,11 +164,47 @@ function init2048() {
     };
     document.addEventListener('keydown', handleKeyDown);
 
-    addTouchDpad({
-        onLeft: (p) => { if (p) tryMove(moveLeft); },
-        onRight: (p) => { if (p) tryMove(moveRight); },
-        onUp: (p) => { if (p) tryMove(moveUp); },
-        onDown: (p) => { if (p) tryMove(moveDown); }
+    /* Swipe gesture detection — swipe anywhere on screen to move tiles */
+    let swipeStartX = null;
+    let swipeStartY = null;
+    const SWIPE_MIN = 25; // minimum px to count as a swipe
+
+    function onSwipeStart(e) {
+        if (e.touches.length !== 1) return;
+        e.preventDefault();
+        swipeStartX = e.touches[0].clientX;
+        swipeStartY = e.touches[0].clientY;
+    }
+    function onSwipeMove(e) {
+        if (swipeStartX !== null) e.preventDefault(); // stop page scroll while swiping
+    }
+    function onSwipeEnd(e) {
+        if (swipeStartX === null || swipeStartY === null) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - swipeStartX;
+        const dy = t.clientY - swipeStartY;
+        swipeStartX = null;
+        swipeStartY = null;
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        if (Math.max(ax, ay) < SWIPE_MIN) return;
+        if (ax >= ay) {
+            tryMove(dx > 0 ? moveRight : moveLeft);
+        } else {
+            tryMove(dy > 0 ? moveDown : moveUp);
+        }
+    }
+
+    /* Attach to the gameContainer so the user can swipe the whole play area */
+    const swipeTarget = gameContainer || canvas;
+    swipeTarget.addEventListener('touchstart', onSwipeStart, { passive: false });
+    swipeTarget.addEventListener('touchmove', onSwipeMove, { passive: false });
+    swipeTarget.addEventListener('touchend', onSwipeEnd, { passive: false });
+
+    cleanupFunctions.push(() => {
+        swipeTarget.removeEventListener('touchstart', onSwipeStart);
+        swipeTarget.removeEventListener('touchmove', onSwipeMove);
+        swipeTarget.removeEventListener('touchend', onSwipeEnd);
     });
     
     // Initialize with 2 tiles
@@ -193,13 +229,18 @@ function init2048() {
                 const x = c * (tileSize + padding) + padding;
                 const y = r * (tileSize + padding) + padding;
                 
-                ctx.fillStyle = colors[value] || '#3c3a32';
-                if (value > 0) {
-                    ctx.shadowColor = colors[value] || '#3c3a32';
-                    ctx.shadowBlur = 10;
-                }
+                const tileColor = colors[value] || '#3c3a32';
+                ctx.fillStyle = tileColor;
                 ctx.fillRect(x, y, tileSize, tileSize);
-                ctx.shadowBlur = 0;
+                // Subtle glow for non-zero tiles (no shadowBlur)
+                if (value > 0) {
+                    ctx.globalAlpha = 0.15;
+                    ctx.fillStyle = tileColor;
+                    ctx.fillRect(x - 2, y - 2, tileSize + 4, tileSize + 4);
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = tileColor;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
                 
                 if (value > 0) {
                     ctx.fillStyle = textColors[value] || '#f9f6f2';

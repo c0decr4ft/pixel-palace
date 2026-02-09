@@ -167,7 +167,7 @@ function initBreakout() {
         ctx.fillStyle = '#000011';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw bricks
+        // Draw bricks (no shadowBlur — expensive on mobile)
         for (let r = 0; r < brickRows; r++) {
             for (let c = 0; c < brickCols; c++) {
                 const brick = bricks[r][c];
@@ -175,28 +175,35 @@ function initBreakout() {
                     const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
                     const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
                     ctx.fillStyle = brick.color;
-                    ctx.shadowColor = brick.color;
-                    ctx.shadowBlur = 4;
                     ctx.fillRect(brickX, brickY, brickWidth, brickHeight);
+                    // Subtle highlight on top edge
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(brickX, brickY, brickWidth, 2);
+                    ctx.globalAlpha = 1;
                 }
             }
         }
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
         
+        // Paddle — glow via layered rects
+        ctx.globalAlpha = 0.12;
         ctx.fillStyle = '#00ffff';
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 6;
+        ctx.fillRect(paddleX - 2, canvas.height - paddleHeight - 22, paddleWidth + 4, paddleHeight + 4);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#00ffff';
         ctx.fillRect(paddleX, canvas.height - paddleHeight - 20, paddleWidth, paddleHeight);
         
+        // Ball — glow via layered circles
+        ctx.globalAlpha = 0.15;
         ctx.fillStyle = '#fff';
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(ballX, ballY, ballSize + 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fff';
         ctx.beginPath();
         ctx.arc(ballX, ballY, ballSize, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
         
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';

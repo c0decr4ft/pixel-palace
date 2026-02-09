@@ -60,6 +60,7 @@ function pauseGame() {
     _pausedRAFCallback = _lastRAFCallback;
     if (gameLoop) { _origCAF(gameLoop); }
     if (pauseOverlay) pauseOverlay.classList.add('visible');
+    stopArcadeMusic();
 }
 
 function resumeGame() {
@@ -71,6 +72,9 @@ function resumeGame() {
         const cb = _pausedRAFCallback;
         _pausedRAFCallback = null;
         gameLoop = _origRAF(cb);
+    }
+    if (currentGame && arcadeMusicEnabled && audioCtx && audioCtx.state === 'running') {
+        startArcadeMusic(currentGame);
     }
 }
 
@@ -108,39 +112,172 @@ try {
     if (localStorage.getItem(STORAGE_MUSIC) === '0') arcadeMusicEnabled = false;
 } catch (e) {}
 
-// Arcade background music: multiple segments that rotate (different beats)
+// Per-game background music — each game gets its own melody, wave type, and feel
 let arcadeMusicOsc = null;
 let arcadeMusicGain = null;
 let arcadeMusicTimeout = null;
+let currentMusicGame = null;
 
-const ARCADE_TRACKS = [
+/*
+ * GAME_MUSIC: { gameName: { wave, vol, tracks: [ [ [freq, dur], ... ], ... ] } }
+ * - wave: oscillator type (square, sawtooth, triangle, sine)
+ * - vol: peak gain (default 0.06)
+ * - tracks: array of note-sequence arrays that loop/rotate
+ */
+const GAME_MUSIC = {
+    /* Pong — classic 70s minimal arcade blips, bouncy and clean */
+    pong: { wave: 'square', vol: 0.05, tracks: [
+        [
+            [330, 0.12], [0, 0.06], [330, 0.12], [0, 0.18],
+            [440, 0.12], [0, 0.06], [440, 0.12], [0, 0.18],
+            [392, 0.12], [0, 0.06], [330, 0.12], [0, 0.06],
+            [294, 0.12], [0, 0.06], [262, 0.2], [0, 0.2],
+            [262, 0.12], [0, 0.06], [294, 0.12], [0, 0.06],
+            [330, 0.12], [0, 0.06], [392, 0.15], [0, 0.06],
+            [440, 0.2], [0, 0.1], [392, 0.15], [0, 0.06],
+            [330, 0.25], [0, 0.3]
+        ]
+    ]},
+    /* Snake — hypnotic minor key loop, slightly eerie */
+    snake: { wave: 'triangle', vol: 0.07, tracks: [
+        [
+            [220, 0.2], [262, 0.2], [247, 0.2], [220, 0.2],
+            [196, 0.25], [0, 0.08], [220, 0.2], [262, 0.2],
+            [294, 0.25], [262, 0.2], [247, 0.3], [0, 0.1],
+            [220, 0.2], [208, 0.2], [196, 0.2], [185, 0.2],
+            [196, 0.3], [0, 0.08], [220, 0.15], [247, 0.15],
+            [262, 0.15], [247, 0.15], [220, 0.4], [0, 0.15]
+        ],
+        [
+            [165, 0.25], [196, 0.25], [220, 0.2], [196, 0.2],
+            [175, 0.3], [0, 0.1], [165, 0.2], [196, 0.2],
+            [220, 0.2], [262, 0.25], [247, 0.2], [220, 0.35],
+            [0, 0.15]
+        ]
+    ]},
+    /* Tetris — Korobeiniki-inspired Russian folk melody, upbeat */
+    tetris: { wave: 'square', vol: 0.05, tracks: [
+        [
+            [659, 0.15], [494, 0.08], [523, 0.08], [587, 0.15],
+            [523, 0.08], [494, 0.08], [440, 0.15], [0, 0.03],
+            [440, 0.08], [523, 0.08], [659, 0.15], [587, 0.08],
+            [523, 0.08], [494, 0.2], [0, 0.03], [523, 0.08],
+            [587, 0.15], [659, 0.15], [523, 0.15], [440, 0.15],
+            [440, 0.15], [0, 0.08]
+        ],
+        [
+            [587, 0.15], [0, 0.03], [698, 0.08], [880, 0.15],
+            [784, 0.08], [698, 0.08], [659, 0.2], [0, 0.03],
+            [523, 0.08], [659, 0.15], [587, 0.08], [523, 0.08],
+            [494, 0.15], [0, 0.03], [494, 0.08], [523, 0.08],
+            [587, 0.15], [659, 0.15], [523, 0.15], [440, 0.15],
+            [440, 0.2], [0, 0.1]
+        ]
+    ]},
+    /* Tron — dark synthwave, brooding sawtooth, Daft-Punk-inspired */
+    tron: { wave: 'sawtooth', vol: 0.04, tracks: [
+        [
+            [110, 0.25], [0, 0.05], [110, 0.12], [131, 0.12],
+            [110, 0.25], [0, 0.05], [147, 0.12], [131, 0.12],
+            [110, 0.3], [0, 0.1], [165, 0.12], [147, 0.12],
+            [131, 0.12], [110, 0.12], [98, 0.35], [0, 0.15]
+        ],
+        [
+            [131, 0.2], [0, 0.05], [165, 0.15], [147, 0.15],
+            [131, 0.2], [0, 0.05], [110, 0.15], [131, 0.2],
+            [165, 0.25], [0, 0.08], [196, 0.12], [165, 0.12],
+            [147, 0.12], [131, 0.12], [110, 0.4], [0, 0.2]
+        ],
+        [
+            [82, 0.3], [0, 0.05], [98, 0.15], [110, 0.15],
+            [131, 0.2], [110, 0.15], [98, 0.25], [0, 0.1],
+            [82, 0.15], [98, 0.15], [110, 0.2], [131, 0.15],
+            [110, 0.15], [98, 0.15], [82, 0.4], [0, 0.2]
+        ]
+    ]},
+    /* Breakout — upbeat bouncy arcade, major key energy */
+    breakout: { wave: 'square', vol: 0.05, tracks: [
+        [
+            [523, 0.12], [0, 0.03], [523, 0.08], [659, 0.12],
+            [784, 0.15], [0, 0.05], [659, 0.1], [523, 0.12],
+            [0, 0.03], [587, 0.12], [698, 0.12], [587, 0.15],
+            [0, 0.08], [523, 0.12], [659, 0.15], [784, 0.2],
+            [0, 0.1]
+        ],
+        [
+            [440, 0.12], [523, 0.12], [659, 0.15], [523, 0.1],
+            [440, 0.12], [0, 0.05], [392, 0.12], [440, 0.12],
+            [523, 0.15], [0, 0.05], [587, 0.12], [523, 0.12],
+            [440, 0.12], [392, 0.12], [440, 0.25], [0, 0.15]
+        ]
+    ]},
+    /* Space Invaders — ominous marching, descending tension */
+    spaceinvaders: { wave: 'square', vol: 0.05, tracks: [
+        [
+            [131, 0.3], [0, 0.2], [123, 0.3], [0, 0.2],
+            [117, 0.3], [0, 0.2], [110, 0.4], [0, 0.3]
+        ],
+        [
+            [110, 0.2], [0, 0.1], [131, 0.15], [0, 0.05],
+            [110, 0.2], [0, 0.1], [98, 0.2], [0, 0.1],
+            [110, 0.15], [0, 0.05], [131, 0.15], [0, 0.05],
+            [165, 0.15], [0, 0.05], [131, 0.3], [0, 0.15],
+            [110, 0.4], [0, 0.3]
+        ],
+        [
+            [82, 0.35], [0, 0.15], [98, 0.25], [0, 0.1],
+            [110, 0.25], [0, 0.1], [98, 0.25], [0, 0.1],
+            [82, 0.5], [0, 0.3]
+        ]
+    ]},
+    /* Memory — calm gentle puzzle music, soft sine tones */
+    memory: { wave: 'sine', vol: 0.07, tracks: [
+        [
+            [523, 0.3], [0, 0.08], [659, 0.3], [0, 0.08],
+            [784, 0.35], [0, 0.1], [659, 0.25], [0, 0.08],
+            [523, 0.4], [0, 0.15],
+            [587, 0.3], [0, 0.08], [698, 0.3], [0, 0.08],
+            [784, 0.35], [0, 0.1], [698, 0.25], [0, 0.08],
+            [587, 0.4], [0, 0.2]
+        ],
+        [
+            [440, 0.35], [0, 0.1], [523, 0.3], [0, 0.08],
+            [587, 0.3], [0, 0.08], [523, 0.25], [0, 0.08],
+            [440, 0.4], [0, 0.12],
+            [392, 0.3], [0, 0.08], [440, 0.3], [0, 0.08],
+            [523, 0.35], [0, 0.1], [440, 0.3], [0, 0.08],
+            [392, 0.45], [0, 0.25]
+        ]
+    ]},
+    /* 2048 — zen minimalist ambient, triangle wave, spacious */
+    '2048': { wave: 'triangle', vol: 0.06, tracks: [
+        [
+            [262, 0.4], [0, 0.2], [330, 0.35], [0, 0.15],
+            [392, 0.5], [0, 0.25], [330, 0.35], [0, 0.2],
+            [262, 0.5], [0, 0.3]
+        ],
+        [
+            [196, 0.45], [0, 0.2], [262, 0.4], [0, 0.15],
+            [330, 0.45], [0, 0.2], [294, 0.35], [0, 0.15],
+            [262, 0.4], [0, 0.15], [196, 0.55], [0, 0.3]
+        ],
+        [
+            [349, 0.4], [0, 0.15], [330, 0.35], [0, 0.15],
+            [294, 0.4], [0, 0.2], [262, 0.45], [0, 0.2],
+            [294, 0.35], [0, 0.15], [262, 0.55], [0, 0.35]
+        ]
+    ]}
+};
+
+/* Fallback generic track if game has no custom music */
+const FALLBACK_MUSIC = { wave: 'square', vol: 0.05, tracks: [
     [
         [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
         [392, 0.15], [523, 0.25], [0, 0.1],
         [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
-        [392, 0.15], [330, 0.25], [0, 0.1],
-        [349, 0.15], [440, 0.15], [523, 0.15], [698, 0.2],
-        [523, 0.15], [440, 0.25], [0, 0.1],
-        [262, 0.15], [330, 0.15], [392, 0.15], [523, 0.2],
         [392, 0.15], [330, 0.2], [262, 0.4]
-    ],
-    [
-        [196, 0.2], [247, 0.2], [294, 0.2], [247, 0.2],
-        [196, 0.25], [0, 0.08], [262, 0.2], [330, 0.2],
-        [392, 0.25], [330, 0.2], [262, 0.3], [0, 0.1],
-        [220, 0.2], [262, 0.2], [330, 0.2], [262, 0.2],
-        [220, 0.3], [0, 0.08], [196, 0.2], [247, 0.25],
-        [196, 0.35]
-    ],
-    [
-        [523, 0.12], [659, 0.12], [784, 0.12], [659, 0.12],
-        [523, 0.18], [0, 0.06], [587, 0.12], [740, 0.12],
-        [523, 0.18], [0, 0.06], [392, 0.15], [494, 0.15],
-        [587, 0.15], [494, 0.15], [392, 0.22], [0, 0.08],
-        [440, 0.12], [554, 0.12], [659, 0.12], [554, 0.12],
-        [440, 0.2], [523, 0.25]
     ]
-];
+]};
 
 function stopArcadeMusic() {
     if (arcadeMusicTimeout) clearTimeout(arcadeMusicTimeout);
@@ -150,40 +287,44 @@ function stopArcadeMusic() {
         arcadeMusicOsc = null;
     }
     arcadeMusicGain = null;
+    currentMusicGame = null;
 }
 
-function scheduleArcadeMusicStep(stepIndex, trackIndex) {
+function scheduleArcadeMusicStep(stepIndex, trackIndex, music) {
     if (!arcadeMusicGain || !gameContainer || !gameContainer.classList.contains('active')) return;
     if (!arcadeMusicEnabled || !audioCtx || audioCtx.state === 'closed') return;
-    const track = ARCADE_TRACKS[trackIndex % ARCADE_TRACKS.length];
+    const tracks = music.tracks;
+    const track = tracks[trackIndex % tracks.length];
     const [freq, dur] = track[stepIndex % track.length];
     const nextStep = stepIndex + 1;
-    const nextTrackIndex = nextStep >= track.length ? (trackIndex + 1) % ARCADE_TRACKS.length : trackIndex;
+    const nextTrackIndex = nextStep >= track.length ? (trackIndex + 1) % tracks.length : trackIndex;
     const nextStepIndex = nextStep >= track.length ? 0 : nextStep;
     arcadeMusicTimeout = setTimeout(() => {
-        scheduleArcadeMusicStep(nextStepIndex, nextTrackIndex);
+        scheduleArcadeMusicStep(nextStepIndex, nextTrackIndex, music);
     }, (dur + 0.02) * 1000);
     if (freq > 0 && arcadeMusicOsc) {
         try {
             const t = audioCtx.currentTime;
             arcadeMusicOsc.frequency.setValueAtTime(freq, t);
-            arcadeMusicGain.gain.setValueAtTime(0.06, t);
+            arcadeMusicGain.gain.setValueAtTime(music.vol, t);
             arcadeMusicGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
         } catch (e) {}
     }
 }
 
-function startArcadeMusic() {
+function startArcadeMusic(gameName) {
     stopArcadeMusic();
     if (!arcadeMusicEnabled || !audioCtx || audioCtx.state === 'suspended' || audioCtx.state === 'closed') return;
+    const music = GAME_MUSIC[gameName] || FALLBACK_MUSIC;
+    currentMusicGame = gameName || null;
     arcadeMusicOsc = audioCtx.createOscillator();
-    arcadeMusicOsc.type = 'square';
+    arcadeMusicOsc.type = music.wave;
     arcadeMusicGain = audioCtx.createGain();
     arcadeMusicGain.gain.value = 0;
     arcadeMusicOsc.connect(arcadeMusicGain);
     arcadeMusicGain.connect(audioCtx.destination);
     arcadeMusicOsc.start(audioCtx.currentTime);
-    scheduleArcadeMusicStep(0, 0);
+    scheduleArcadeMusicStep(0, 0, music);
 }
 
 function playSound(frequency, duration, type = 'square') {
@@ -271,10 +412,10 @@ if (musicToggle) {
         updateAudioToggleUI();
         if (!arcadeMusicEnabled) {
             stopArcadeMusic();
-        } else if (gameContainer && gameContainer.classList.contains('active')) {
+        } else if (gameContainer && gameContainer.classList.contains('active') && currentGame) {
             if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'running')) {
-                if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic()).catch(() => {});
-                else startArcadeMusic();
+                if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic(currentGame)).catch(() => {});
+                else startArcadeMusic(currentGame);
             }
         }
     });
@@ -308,12 +449,13 @@ function startGame(gameName) {
     lobby.style.display = 'none';
     gameContainer.classList.add('active');
     document.body.classList.add('game-active');
+    currentGame = gameName;
     score = 0;
     updateScore(0);
     if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
     if (audioCtx && arcadeMusicEnabled) {
-        if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic()).catch(() => {});
-        else startArcadeMusic();
+        if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic(gameName)).catch(() => {});
+        else startArcadeMusic(gameName);
     }
     if (currentGameTitle) {
         currentGameTitle.textContent = GAME_DISPLAY_NAMES[gameName] || gameName.toUpperCase();
@@ -428,7 +570,7 @@ function clearTouchControls() {
 
 function addTouchDpad(options) {
     if (!touchControls) return;
-    const { onLeft, onRight, onUp, onDown, onAction, onActionEnd, actionLabel } = options;
+    const { onLeft, onRight, onUp, onDown, onAction, onActionEnd, actionLabel, snapCardinal } = options;
     /* Clean up previous joystick listeners if any */
     if (_joystickCleanup) { _joystickCleanup(); _joystickCleanup = null; }
     touchControls.innerHTML = '';
@@ -485,11 +627,25 @@ function addTouchDpad(options) {
         const tx = Math.cos(a) * c;
         const ty = Math.sin(a) * c;
         thumb.style.transform = 'translate(calc(-50% + ' + tx + 'px),calc(-50% + ' + ty + 'px))';
-        const deg = a * 180 / Math.PI;
-        fire('right', onRight, deg > -67.5 && deg < 67.5);
-        fire('down', onDown, deg > 22.5 && deg < 157.5);
-        fire('left', onLeft, deg > 112.5 || deg < -112.5);
-        fire('up', onUp, deg > -157.5 && deg < -22.5);
+        if (snapCardinal) {
+            /* For grid games (Snake, 2048): only fire the single dominant
+               cardinal direction so diagonals never confuse input. */
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+            let dom;
+            if (absX >= absY) dom = dx > 0 ? 'right' : 'left';
+            else              dom = dy > 0 ? 'down'  : 'up';
+            fire('right', onRight, dom === 'right');
+            fire('down',  onDown,  dom === 'down');
+            fire('left',  onLeft,  dom === 'left');
+            fire('up',    onUp,    dom === 'up');
+        } else {
+            const deg = a * 180 / Math.PI;
+            fire('right', onRight, deg > -67.5 && deg < 67.5);
+            fire('down', onDown, deg > 22.5 && deg < 157.5);
+            fire('left', onLeft, deg > 112.5 || deg < -112.5);
+            fire('up', onUp, deg > -157.5 && deg < -22.5);
+        }
     }
 
     function onTS(e) {

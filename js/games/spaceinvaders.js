@@ -128,6 +128,21 @@ function initSpaceInvaders() {
     ];
     const SPRITES = [SPRITE_SQUID, SPRITE_CRAB, SPRITE_CRAB, SPRITE_OCTO];
 
+    // Player ship sprite — 14 wide × 9 tall, multi-color
+    // 0=empty, 1=hull, 2=cockpit/accent, 3=engine exhaust
+    const SHIP_SPRITE = [
+        [0,0,0,0,0,0,2,2,0,0,0,0,0,0],
+        [0,0,0,0,0,1,2,2,1,0,0,0,0,0],
+        [0,0,0,0,1,1,1,1,1,1,0,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,1,1,2,2,2,2,1,1,1,0,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,1,1,0,1,1,0,1,1,0,0,1],
+        [0,0,0,0,3,0,3,3,0,3,0,0,0,0],
+    ];
+    const SHIP_COLORS = { 1: '#00ffcc', 2: '#aaffff', 3: '#ff8800' };
+
     function drawSprite(sprite, sx, sy, color) {
         ctx.fillStyle = color;
         for (let r = 0; r < sprite.length; r++) {
@@ -136,6 +151,36 @@ function initSpaceInvaders() {
                 if (row[c]) ctx.fillRect(sx + c * PX, sy + r * PX, PX, PX);
             }
         }
+    }
+
+    function drawShip(sx, sy, time) {
+        for (let r = 0; r < SHIP_SPRITE.length; r++) {
+            const row = SHIP_SPRITE[r];
+            for (let c = 0; c < row.length; c++) {
+                const v = row[c];
+                if (!v) continue;
+                if (v === 3) {
+                    // Animated engine glow — flickers
+                    const flicker = 0.6 + 0.4 * Math.sin(time * 12 + c * 2);
+                    ctx.globalAlpha = flicker;
+                    ctx.fillStyle = '#ff8800';
+                    ctx.fillRect(sx + c * PX, sy + r * PX, PX, PX);
+                    ctx.globalAlpha = flicker * 0.5;
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.fillRect(sx + c * PX, sy + r * PX + PX, PX, PX * 0.6);
+                    ctx.globalAlpha = 1;
+                } else {
+                    ctx.fillStyle = SHIP_COLORS[v];
+                    ctx.fillRect(sx + c * PX, sy + r * PX, PX, PX);
+                }
+            }
+        }
+        // Cockpit glass highlight
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(sx + 6 * PX, sy + 4 * PX, PX, PX);
+        ctx.fillRect(sx + 7 * PX, sy + 0 * PX, PX, PX);
+        ctx.globalAlpha = 1;
     }
 
     let lastEnemyShot = 0;
@@ -288,24 +333,17 @@ function initSpaceInvaders() {
             }
         }
         
-        // Player ship — classic pixel-art cannon
+        // Player ship — pixel-art sprite with animated engines
+        const shipSpriteW = SHIP_SPRITE[0].length * PX;  // 14*3 = 42
+        const shipSpriteH = SHIP_SPRITE.length * PX;      // 9*3 = 27
+        const shipX = playerX + (playerWidth - shipSpriteW) / 2;
         const shipY = canvas.height - 44;
-        const sp = playerX;
-        // Ship glow (subtle)
-        ctx.globalAlpha = 0.1;
+        // Subtle hull glow behind
+        ctx.globalAlpha = 0.08;
         ctx.fillStyle = '#00ffcc';
-        ctx.fillRect(sp, shipY + 14, playerWidth, 12);
+        ctx.fillRect(shipX - 2, shipY + 6, shipSpriteW + 4, shipSpriteH - 6);
         ctx.globalAlpha = 1;
-        // Ship body
-        ctx.fillStyle = '#00ffcc';
-        ctx.fillRect(sp + 2, shipY + 16, playerWidth - 4, 8);  // base
-        ctx.fillRect(sp + 6, shipY + 10, playerWidth - 12, 6); // mid
-        ctx.fillRect(sp + 10, shipY + 6, playerWidth - 20, 4); // upper
-        ctx.fillRect(sp + playerWidth / 2 - 3, shipY, 6, 6);   // cannon
-        // Highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.fillRect(sp + 8, shipY + 12, 4, 2);
-        ctx.fillRect(sp + playerWidth / 2 - 1, shipY + 1, 2, 4);
+        drawShip(shipX, shipY, currentTime / 1000);
         
         // Player bullets
         ctx.fillStyle = '#ffffff';

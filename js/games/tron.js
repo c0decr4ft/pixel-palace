@@ -35,7 +35,8 @@ function initTron() {
         onUp: (p) => { if (p) nextDir = 0; },
         onDown: (p) => { if (p) nextDir = 2; },
         onLeft: (p) => { if (p) nextDir = 3; },
-        onRight: (p) => { if (p) nextDir = 1; }
+        onRight: (p) => { if (p) nextDir = 1; },
+        snapCardinal: true
     });
     function clearTronKeys() {
         keys['ArrowUp'] = keys['ArrowDown'] = keys['ArrowLeft'] = keys['ArrowRight'] = false;
