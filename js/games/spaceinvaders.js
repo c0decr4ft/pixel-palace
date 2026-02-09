@@ -10,42 +10,79 @@ function initSpaceInvaders() {
     const playerHeight = 26;
     let playerX = canvas.width / 2 - playerWidth / 2;
     
-    const invaderRows = 4;
-    const invaderCols = 8;
     const invaderWidth = 36;
     const invaderHeight = 26;
     const invaderPadding = 12;
     
+    /* ---- Wave / difficulty progression ---- */
+    let wave = 1;
+    const BASE_INVADER_SPEED = 1;
+    const SPEED_PER_WAVE = 0.15;          // subtle speed bump each wave
+    const BASE_SHOT_INTERVAL = 1.5;       // seconds between enemy shots
+    const SHOT_INTERVAL_REDUCE = 0.08;    // shoots faster each wave
+    const MIN_SHOT_INTERVAL = 0.4;
+    const BASE_ENEMY_BULLET_SPEED = 180;
+    const ENEMY_BULLET_SPEED_PER_WAVE = 8;
+    const BASE_INVADER_ROWS = 4;
+    const BASE_INVADER_COLS = 8;
+    const MAX_INVADER_ROWS = 6;
+    const MAX_INVADER_COLS = 10;
+    
     let invaders = [];
     let invaderDirection = 1;
-    let invaderSpeed = 1;
+    let invaderSpeed;
     let bullets = [];
     let enemyBullets = [];
     let gameOver = false;
-    let win = false;
+    let waveTransition = 0;
+    let invaderRows, invaderCols;
+    let enemyShotInterval, enemyBulletSpeed;
     
-    const INVADER_COLORS = ['#ff4444', '#ffaa00', '#00ff88', '#00ccff'];
+    const INVADER_COLORS = ['#ff4444', '#ffaa00', '#00ff88', '#00ccff', '#ff66ff', '#ffff44'];
     
-    for (let r = 0; r < invaderRows; r++) {
-        for (let c = 0; c < invaderCols; c++) {
-            invaders.push({
-                x: c * (invaderWidth + invaderPadding) + 44,
-                y: r * (invaderHeight + invaderPadding) + 40,
-                alive: true,
-                row: r
-            });
+    function buildWave() {
+        invaderRows = Math.min(MAX_INVADER_ROWS, BASE_INVADER_ROWS + Math.floor((wave - 1) / 3));
+        invaderCols = Math.min(MAX_INVADER_COLS, BASE_INVADER_COLS + Math.floor((wave - 1) / 4));
+        invaderSpeed = BASE_INVADER_SPEED + (wave - 1) * SPEED_PER_WAVE;
+        enemyShotInterval = Math.max(MIN_SHOT_INTERVAL, BASE_SHOT_INTERVAL - (wave - 1) * SHOT_INTERVAL_REDUCE);
+        enemyBulletSpeed = BASE_ENEMY_BULLET_SPEED + (wave - 1) * ENEMY_BULLET_SPEED_PER_WAVE;
+        
+        invaders = [];
+        invaderDirection = 1;
+        const startX = Math.max(20, (canvas.width - invaderCols * (invaderWidth + invaderPadding)) / 2);
+        for (let r = 0; r < invaderRows; r++) {
+            for (let c = 0; c < invaderCols; c++) {
+                invaders.push({
+                    x: c * (invaderWidth + invaderPadding) + startX,
+                    y: r * (invaderHeight + invaderPadding) + 40,
+                    alive: true,
+                    row: r
+                });
+            }
         }
+        bullets = [];
+        enemyBullets = [];
     }
+    
+    function advanceWave() {
+        wave++;
+        waveTransition = 2.0;
+        buildWave();
+        playerX = canvas.width / 2 - playerWidth / 2;
+    }
+    
+    // Initial setup
+    buildWave();
     
     const keys = {};
     let lastFireTime = 0;
-    const FIRE_COOLDOWN = 0.28; // seconds between shots (auto-fire rate)
+    const FIRE_COOLDOWN = 0.28;
     let touchFiring = false;
     let touchFireTimer = null;
     
     function doFire() {
         const now = performance.now() / 1000;
-        if (!gameOver && !win && now - lastFireTime >= FIRE_COOLDOWN) {
+        if (!gameOver && waveTransition <= 0 && now - lastFireTime >= FIRE_COOLDOWN) {
             lastFireTime = now;
             bullets.push({ x: playerX + playerWidth / 2, y: canvas.height - 52 });
             playSound(400, 0.1);
@@ -56,8 +93,7 @@ function initSpaceInvaders() {
             e.preventDefault();
         }
         keys[e.key] = true;
-        // Restart on space when game over or win
-        if ((gameOver || win) && e.key === ' ') {
+        if (gameOver && e.key === ' ') {
             stopGame();
             startGame('spaceinvaders');
             return;
@@ -95,8 +131,8 @@ function initSpaceInvaders() {
     window.addEventListener('blur', clearSpaceKeys);
     
     // --- Classic pixel-art invader sprites (binary bitmaps) ---
-    const PX = 3; // pixel block size
-    const SPRITE_SQUID = [ // 8 wide x 8 tall
+    const PX = 3;
+    const SPRITE_SQUID = [
         [0,0,0,1,1,0,0,0],
         [0,0,1,1,1,1,0,0],
         [0,1,1,1,1,1,1,0],
@@ -106,7 +142,7 @@ function initSpaceInvaders() {
         [0,1,0,1,1,0,1,0],
         [1,0,1,0,0,1,0,1],
     ];
-    const SPRITE_CRAB = [ // 11 wide x 8 tall
+    const SPRITE_CRAB = [
         [0,0,1,0,0,0,0,0,1,0,0],
         [0,0,0,1,0,0,0,1,0,0,0],
         [0,0,1,1,1,1,1,1,1,0,0],
@@ -116,7 +152,7 @@ function initSpaceInvaders() {
         [1,0,1,0,0,0,0,0,1,0,1],
         [0,0,0,1,1,0,1,1,0,0,0],
     ];
-    const SPRITE_OCTO = [ // 12 wide x 8 tall
+    const SPRITE_OCTO = [
         [0,0,0,0,1,1,1,1,0,0,0,0],
         [0,1,1,1,1,1,1,1,1,1,1,0],
         [1,1,1,1,1,1,1,1,1,1,1,1],
@@ -126,10 +162,9 @@ function initSpaceInvaders() {
         [0,1,1,0,0,1,1,0,0,1,1,0],
         [1,1,0,0,0,0,0,0,0,0,1,1],
     ];
-    const SPRITES = [SPRITE_SQUID, SPRITE_CRAB, SPRITE_CRAB, SPRITE_OCTO];
+    const SPRITES = [SPRITE_SQUID, SPRITE_CRAB, SPRITE_CRAB, SPRITE_OCTO, SPRITE_SQUID, SPRITE_CRAB];
 
-    // Player ship sprite — 14 wide × 9 tall, multi-color
-    // 0=empty, 1=hull, 2=cockpit/accent, 3=engine exhaust
+    // Player ship sprite
     const SHIP_SPRITE = [
         [0,0,0,0,0,0,2,2,0,0,0,0,0,0],
         [0,0,0,0,0,1,2,2,1,0,0,0,0,0],
@@ -160,7 +195,6 @@ function initSpaceInvaders() {
                 const v = row[c];
                 if (!v) continue;
                 if (v === 3) {
-                    // Animated engine glow — flickers
                     const flicker = 0.6 + 0.4 * Math.sin(time * 12 + c * 2);
                     ctx.globalAlpha = flicker;
                     ctx.fillStyle = '#ff8800';
@@ -175,7 +209,6 @@ function initSpaceInvaders() {
                 }
             }
         }
-        // Cockpit glass highlight
         ctx.globalAlpha = 0.35;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(sx + 6 * PX, sy + 4 * PX, PX, PX);
@@ -187,7 +220,6 @@ function initSpaceInvaders() {
     let lastTime = performance.now();
     const PLAYER_SPEED = 240;
     const BULLET_SPEED = 320;
-    const ENEMY_BULLET_SPEED = 180;
     const STEP_DT = 1/60;
     const MAX_STEPS = 5;
     let accum = 0;
@@ -200,21 +232,33 @@ function initSpaceInvaders() {
         lastTime = currentTime;
         if (dt > 0.1) dt = STEP_DT;
         
-        if (!gameOver && !win) {
-            // Player movement (delta-time for responsiveness)
+        /* Wave transition countdown */
+        if (waveTransition > 0) {
+            waveTransition -= dt;
+            drawScene(currentTime);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80);
+            ctx.fillStyle = '#00ff88';
+            ctx.font = '22px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('WAVE ' + wave, canvas.width / 2, canvas.height / 2 + 8);
+            return;
+        }
+        
+        if (!gameOver) {
             if (keys['ArrowLeft'] || touchKeys['ArrowLeft']) playerX = Math.max(0, playerX - PLAYER_SPEED * dt);
             if (keys['ArrowRight'] || touchKeys['ArrowRight']) playerX = Math.min(canvas.width - playerWidth, playerX + PLAYER_SPEED * dt);
             
-            // Auto-fire while holding space
             if (keys[' ']) doFire();
             
             let aliveInvaders = invaders.filter(inv => inv.alive);
             if (aliveInvaders.length === 0) {
-                win = true;
-                playSound(1000, 0.5);
+                playSound(1000, 0.3);
+                advanceWave();
+                drawScene(currentTime);
+                return;
             }
             
-            // Fixed timestep for invaders, bullets, enemy bullets (smooth speed)
             accum += dt;
             enemyShotAccum += dt;
             let steps = 0;
@@ -222,7 +266,6 @@ function initSpaceInvaders() {
                 accum -= STEP_DT;
                 steps++;
                 
-                // Move invaders one fixed step
                 let moveDown = false;
                 for (let inv of aliveInvaders) {
                     if ((inv.x <= 0 && invaderDirection < 0) || 
@@ -234,7 +277,7 @@ function initSpaceInvaders() {
                 if (moveDown) {
                     invaderDirection = -invaderDirection;
                     for (let inv of invaders) {
-                        inv.y += 20;
+                        inv.y += 18;
                         if (inv.alive && inv.y > canvas.height - 88) {
                             gameOver = true;
                             playSound(100, 0.5);
@@ -246,25 +289,27 @@ function initSpaceInvaders() {
                     }
                 }
                 
-                // Move bullets
                 const bulletMove = BULLET_SPEED * STEP_DT;
-                bullets = bullets.filter(b => {
-                    b.y -= bulletMove;
-                    return b.y > 0;
-                });
+                bullets = bullets.filter(b => { b.y -= bulletMove; return b.y > 0; });
                 
-                const enemyBulletMove = ENEMY_BULLET_SPEED * STEP_DT;
-                enemyBullets = enemyBullets.filter(b => {
-                    b.y += enemyBulletMove;
-                    return b.y < canvas.height;
-                });
+                const enemyBulletMove = enemyBulletSpeed * STEP_DT;
+                enemyBullets = enemyBullets.filter(b => { b.y += enemyBulletMove; return b.y < canvas.height; });
             }
             
-            // Enemy shooting (fixed interval)
-            if (enemyShotAccum >= 1.5 && aliveInvaders.length > 0) {
+            // Enemy shooting
+            if (enemyShotAccum >= enemyShotInterval && aliveInvaders.length > 0) {
                 enemyShotAccum = 0;
                 const shooter = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
                 enemyBullets.push({ x: shooter.x + invaderWidth / 2, y: shooter.y + invaderHeight });
+                // Extra shooters at higher waves
+                if (wave >= 3 && Math.random() < 0.3 && aliveInvaders.length > 1) {
+                    const s2 = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
+                    enemyBullets.push({ x: s2.x + invaderWidth / 2, y: s2.y + invaderHeight });
+                }
+                if (wave >= 6 && Math.random() < 0.25 && aliveInvaders.length > 2) {
+                    const s3 = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
+                    enemyBullets.push({ x: s3.x + invaderWidth / 2, y: s3.y + invaderHeight });
+                }
             }
             
             // Bullet-invader collision
@@ -275,7 +320,7 @@ function initSpaceInvaders() {
                         bullet.y >= inv.y && bullet.y <= inv.y + invaderHeight) {
                         inv.alive = false;
                         bullet.y = -100;
-                        updateScore(score + 20);
+                        updateScore(score + 20 + (wave - 1) * 5);
                         playSound(600, 0.1);
                     }
                 }
@@ -291,7 +336,25 @@ function initSpaceInvaders() {
             }
         }
         
-        // Draw
+        drawScene(currentTime);
+        
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff3366';
+            ctx.font = '28px "Press Start 2P"';
+            ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 16);
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Wave ' + wave + '  Score ' + score, canvas.width / 2, canvas.height / 2 + 14);
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = '9px "Press Start 2P"';
+            ctx.fillText('SPACE to restart', canvas.width / 2, canvas.height / 2 + 40);
+        }
+    }
+    
+    function drawScene(currentTime) {
         ctx.fillStyle = '#050510';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -311,7 +374,7 @@ function initSpaceInvaders() {
         ctx.fillStyle = 'rgba(0,204,204,0.15)';
         ctx.fillRect(0, baseY + 2, canvas.width, 4);
         
-        // Draw invaders
+        // Invaders
         for (let inv of invaders) {
             if (inv.alive) {
                 const color = INVADER_COLORS[inv.row % INVADER_COLORS.length];
@@ -321,7 +384,6 @@ function initSpaceInvaders() {
                 const ox = inv.x + (invaderWidth - spriteW) / 2;
                 const oy = inv.y + (invaderHeight - spriteH) / 2;
                 drawSprite(sprite, ox, oy, color);
-                // Subtle glow: redraw slightly larger behind, semi-transparent
                 ctx.globalAlpha = 0.12;
                 ctx.fillStyle = color;
                 for (let r = 0; r < sprite.length; r++) {
@@ -333,12 +395,11 @@ function initSpaceInvaders() {
             }
         }
         
-        // Player ship — pixel-art sprite with animated engines
-        const shipSpriteW = SHIP_SPRITE[0].length * PX;  // 14*3 = 42
-        const shipSpriteH = SHIP_SPRITE.length * PX;      // 9*3 = 27
+        // Player ship
+        const shipSpriteW = SHIP_SPRITE[0].length * PX;
+        const shipSpriteH = SHIP_SPRITE.length * PX;
         const shipX = playerX + (playerWidth - shipSpriteW) / 2;
         const shipY = canvas.height - 44;
-        // Subtle hull glow behind
         ctx.globalAlpha = 0.08;
         ctx.fillStyle = '#00ffcc';
         ctx.fillRect(shipX - 2, shipY + 6, shipSpriteW + 4, shipSpriteH - 6);
@@ -347,69 +408,31 @@ function initSpaceInvaders() {
         
         // Player bullets
         ctx.fillStyle = '#ffffff';
-        for (let bullet of bullets) {
-            ctx.fillRect(bullet.x - 1, bullet.y, 3, 10);
-        }
-        // Bullet glow
+        for (let bullet of bullets) ctx.fillRect(bullet.x - 1, bullet.y, 3, 10);
         ctx.globalAlpha = 0.2;
         ctx.fillStyle = '#aaffff';
-        for (let bullet of bullets) {
-            ctx.fillRect(bullet.x - 2, bullet.y - 1, 5, 12);
-        }
+        for (let bullet of bullets) ctx.fillRect(bullet.x - 2, bullet.y - 1, 5, 12);
         ctx.globalAlpha = 1;
         
         // Enemy bullets
         ctx.fillStyle = '#ff4466';
-        for (let bullet of enemyBullets) {
-            ctx.fillRect(bullet.x - 1, bullet.y, 3, 10);
-        }
+        for (let bullet of enemyBullets) ctx.fillRect(bullet.x - 1, bullet.y, 3, 10);
         ctx.globalAlpha = 0.2;
         ctx.fillStyle = '#ff4466';
-        for (let bullet of enemyBullets) {
-            ctx.fillRect(bullet.x - 2, bullet.y - 1, 5, 12);
-        }
+        for (let bullet of enemyBullets) ctx.fillRect(bullet.x - 2, bullet.y - 1, 5, 12);
         ctx.globalAlpha = 1;
         
-        // Score display at top
+        // HUD
         ctx.fillStyle = '#00ffcc';
-        ctx.font = '12px "Press Start 2P"';
+        ctx.font = '10px "Press Start 2P"';
         ctx.textAlign = 'left';
-        ctx.fillText('SCORE', 12, 18);
+        ctx.fillText('WAVE ' + wave, 12, 18);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('' + score, 12, 34);
-        
-        if (gameOver) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#ff3366';
-            ctx.font = '28px "Press Start 2P"';
-            ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 16);
-            ctx.fillStyle = '#aaaaaa';
-            ctx.font = '10px "Press Start 2P"';
-            ctx.fillText('Score: ' + score, canvas.width / 2, canvas.height / 2 + 14);
-            ctx.fillStyle = '#ffcc00';
-            ctx.font = '9px "Press Start 2P"';
-            ctx.fillText('SPACE to restart', canvas.width / 2, canvas.height / 2 + 40);
-        }
-        
-        if (win) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#00ff88';
-            ctx.font = '28px "Press Start 2P"';
-            ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height / 2 - 16);
-            ctx.fillStyle = '#aaaaaa';
-            ctx.font = '10px "Press Start 2P"';
-            ctx.fillText('Score: ' + score, canvas.width / 2, canvas.height / 2 + 14);
-            ctx.fillStyle = '#ffcc00';
-            ctx.font = '9px "Press Start 2P"';
-            ctx.fillText('SPACE to play again', canvas.width / 2, canvas.height / 2 + 40);
-        }
+        ctx.font = '10px "Press Start 2P"';
+        ctx.textAlign = 'right';
+        ctx.fillText('' + score, canvas.width - 12, 18);
     }
     
     gameLoop = requestAnimationFrame(update);
     cleanupFunctions.push(() => { stopTouchFire(); window.removeEventListener('blur', clearSpaceKeys); });
 }
-

@@ -899,15 +899,13 @@ body.game-active #gameCanvas {
         touch-action: none;
     }
 
-    /* Mobile: canvas grows to fill available space */
+    /* Mobile: canvas fills the available screen space, aspect-ratio preserved */
     .game-play-area #gameCanvas {
         flex: 1 1 0;
-    }
-
-    /* Canvas fills more of the screen since joystick is overlaid */
-    .game-container.active #gameCanvas {
-        max-height: min(82vh, calc(100vh - 70px));
-        max-height: min(82dvh, calc(100dvh - 70px));
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        object-fit: contain;
     }
 
     /* Hide instruction text on mobile — joystick is self-explanatory */

@@ -14,6 +14,29 @@ function initSnake() {
     let food = spawnFood();
     let gameOver = false;
     
+    /* ---- Scissor power-up ---- */
+    const SCISSOR_SPAWN_MIN = 8;    // min food eaten before first scissor
+    const SCISSOR_SPAWN_CHANCE = 0.12; // chance per tick when eligible
+    const SCISSOR_LIFETIME = 40;     // ticks before it disappears
+    const SCISSOR_CUT = 4;           // segments removed
+    let scissor = null;              // { x, y, ticksLeft }
+    let foodEaten = 0;
+    let scissorFlash = 0;            // flash timer when collected
+    
+    function spawnScissor() {
+        if (scissor) return;
+        let x, y;
+        for (let tries = 0; tries < 50; tries++) {
+            x = Math.floor(Math.random() * tileCount);
+            y = Math.floor(Math.random() * tileCount);
+            if (!snake.some(s => s.x === x && s.y === y) &&
+                !(food.x === x && food.y === y)) {
+                scissor = { x, y, ticksLeft: SCISSOR_LIFETIME };
+                return;
+            }
+        }
+    }
+    
     function spawnFood() {
         let x, y;
         for (let tries = 0; tries < 50; tries++) {
@@ -66,11 +89,20 @@ function initSnake() {
     });
     
     let lastTime = 0;
-    const gameSpeed = 200;
+    const BASE_SPEED = 200;   // ms per tick at start
+    const MIN_SPEED = 70;     // fastest possible (ms per tick)
+    const SPEED_PER_FOOD = 3; // ms faster per food eaten (very subtle)
+    
+    function currentSpeed() {
+        // Snake starts at length 1, each food adds 1 segment
+        const eaten = Math.max(0, snake.length - 1);
+        return Math.max(MIN_SPEED, BASE_SPEED - eaten * SPEED_PER_FOOD);
+    }
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
         
+        const gameSpeed = currentSpeed();
         if (currentTime - lastTime < gameSpeed) return;
         lastTime += gameSpeed;
         
@@ -116,11 +148,34 @@ function initSnake() {
             if (head.x === food.x && head.y === food.y) {
                 updateScore(score + 10);
                 food = spawnFood();
+                foodEaten++;
                 playSound(600, 0.1);
             } else {
                 snake.pop();
             }
+            
+            // Check scissor collision
+            if (scissor && head.x === scissor.x && head.y === scissor.y) {
+                const cut = Math.min(SCISSOR_CUT, snake.length - 2); // keep at least head + 1
+                if (cut > 0) {
+                    snake.splice(snake.length - cut, cut);
+                    scissorFlash = 6; // flash for 6 ticks
+                }
+                scissor = null;
+                playSound(900, 0.15);
+                playSound(700, 0.1);
+            }
+            
+            // Scissor spawning & lifetime
+            if (scissor) {
+                scissor.ticksLeft--;
+                if (scissor.ticksLeft <= 0) scissor = null;
+            } else if (foodEaten >= SCISSOR_SPAWN_MIN && snake.length > 5 && Math.random() < SCISSOR_SPAWN_CHANCE) {
+                spawnScissor();
+            }
         }
+        
+        if (scissorFlash > 0) scissorFlash--;
         
         // Draw
         ctx.fillStyle = '#001100';
@@ -159,6 +214,59 @@ function initSnake() {
         ctx.arc(fx - 2, fy - 2, 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
+        
+        // Scissor power-up
+        if (scissor) {
+            const scx = scissor.x * gridSize;
+            const scy = scissor.y * gridSize;
+            const blink = scissor.ticksLeft <= 10 ? (scissor.ticksLeft % 2 === 0) : true;
+            if (blink) {
+                // Glow
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(scx - 2, scy - 2, gridSize + 4, gridSize + 4);
+                ctx.globalAlpha = 1;
+                // Scissor icon: two blades + pivot
+                ctx.fillStyle = '#ffdd00';
+                // Left blade
+                ctx.beginPath();
+                ctx.moveTo(scx + 4, scy + 3);
+                ctx.lineTo(scx + 10, scy + 10);
+                ctx.lineTo(scx + 7, scy + 12);
+                ctx.lineTo(scx + 2, scy + 5);
+                ctx.closePath();
+                ctx.fill();
+                // Right blade
+                ctx.beginPath();
+                ctx.moveTo(scx + 16, scy + 3);
+                ctx.lineTo(scx + 10, scy + 10);
+                ctx.lineTo(scx + 13, scy + 12);
+                ctx.lineTo(scx + 18, scy + 5);
+                ctx.closePath();
+                ctx.fill();
+                // Handles
+                ctx.fillStyle = '#cc8800';
+                ctx.beginPath();
+                ctx.arc(scx + 4, scy + 15, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(scx + 16, scy + 15, 3, 0, Math.PI * 2);
+                ctx.fill();
+                // Pivot dot
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(scx + 10, scy + 10, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // Scissor flash effect — brief green flash when collected
+        if (scissorFlash > 0) {
+            ctx.globalAlpha = 0.12 * scissorFlash;
+            ctx.fillStyle = '#ffff00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1;
+        }
         
         // Snake body — solid fills with head highlight (no shadowBlur/gradients)
         for (let i = snake.length - 1; i >= 0; i--) {

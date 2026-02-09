@@ -61,34 +61,11 @@ function initMemory2() {
 
     let flipTimer = null;
 
-    function getCanvasCoords(e) {
-        const rect = canvas.getBoundingClientRect();
-        if (!rect.width || !rect.height) return null;
-        let cx, cy;
-        if (e.touches && e.touches.length) {
-            cx = e.touches[0].clientX;
-            cy = e.touches[0].clientY;
-        } else {
-            cx = e.clientX;
-            cy = e.clientY;
-        }
-        /* Account for CSS border: getBoundingClientRect includes it,
-           but canvas content starts after the border. */
-        const style = getComputedStyle(canvas);
-        const bL = parseFloat(style.borderLeftWidth) || 0;
-        const bT = parseFloat(style.borderTopWidth) || 0;
-        const contentW = rect.width - bL - (parseFloat(style.borderRightWidth) || 0);
-        const contentH = rect.height - bT - (parseFloat(style.borderBottomWidth) || 0);
-        if (contentW <= 0 || contentH <= 0) return null;
-        return {
-            x: (cx - rect.left - bL) * (canvas.width / contentW),
-            y: (cy - rect.top - bT) * (canvas.height / contentH)
-        };
-    }
+    /* Use shared getEventCanvasCoords from core.js — handles borders + object-fit */
 
     function handleTap(e) {
         if (!canClick || won) return;
-        const coords = getCanvasCoords(e);
+        const coords = getEventCanvasCoords(e);
         if (!coords) return;
 
         for (let card of cards) {

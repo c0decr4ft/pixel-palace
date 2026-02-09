@@ -552,9 +552,33 @@ function getEventCanvasCoords(e) {
     if (!t || !canvas) return null;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    return { x: (t.clientX - rect.left) * scaleX, y: (t.clientY - rect.top) * scaleY };
+    /* Subtract CSS borders to get the content box */
+    const style = getComputedStyle(canvas);
+    const bL = parseFloat(style.borderLeftWidth) || 0;
+    const bT = parseFloat(style.borderTopWidth) || 0;
+    const bR = parseFloat(style.borderRightWidth) || 0;
+    const bB = parseFloat(style.borderBottomWidth) || 0;
+    const contentW = rect.width - bL - bR;
+    const contentH = rect.height - bT - bB;
+    if (contentW <= 0 || contentH <= 0) return null;
+    /* Account for object-fit: contain — content may be letter/pillarboxed */
+    const canvasAR = canvas.width / canvas.height;
+    const boxAR = contentW / contentH;
+    let renderW, renderH, offX, offY;
+    if (canvasAR > boxAR) {
+        renderW = contentW;
+        renderH = contentW / canvasAR;
+        offX = 0;
+        offY = (contentH - renderH) / 2;
+    } else {
+        renderH = contentH;
+        renderW = contentH * canvasAR;
+        offX = (contentW - renderW) / 2;
+        offY = 0;
+    }
+    const x = (t.clientX - rect.left - bL - offX) * (canvas.width / renderW);
+    const y = (t.clientY - rect.top - bT - offY) * (canvas.height / renderH);
+    return { x, y };
 }
 
 let _joystickCleanup = null;
