@@ -3,8 +3,8 @@ function initMemory() {
     currentGameTitle.textContent = 'MEMORY';
     gameControls.innerHTML = 'Click cards to match pairs';
     
-    canvas.width = 400;
-    canvas.height = 400;
+    canvas.width = 310;
+    canvas.height = 310;
     
     const symbols = ['★', '♦', '♣', '♥', '●', '■', '▲', '◆'];
     const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8800', '#88ff00'];
@@ -12,9 +12,9 @@ function initMemory() {
     let cards = [];
     const rows = 4;
     const cols = 4;
-    const cardWidth = 80;
-    const cardHeight = 80;
-    const padding = 12;
+    const cardWidth = 64;
+    const cardHeight = 64;
+    const padding = 10;
     
     // Create pairs
     let pairs = [];
@@ -31,8 +31,8 @@ function initMemory() {
         for (let c = 0; c < cols; c++) {
             const pair = pairs[r * cols + c];
             cards.push({
-                x: c * (cardWidth + padding) + 22,
-                y: r * (cardHeight + padding) + 22,
+                x: c * (cardWidth + padding) + 12,
+                y: r * (cardHeight + padding) + 12,
                 symbol: pair.symbol,
                 color: pair.color,
                 flipped: false,
@@ -118,7 +118,7 @@ function initMemory() {
                 ctx.strokeRect(card.x, card.y, cardWidth, cardHeight);
                 
                 ctx.fillStyle = card.color;
-                ctx.font = '30px Arial';
+                ctx.font = '24px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(card.symbol, card.x + cardWidth/2, card.y + cardHeight/2);
