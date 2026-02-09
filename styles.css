@@ -543,37 +543,7 @@ body {
     50%, 95% { transform: rotateY(180deg); }
 }
 
-.flappy-preview {
-    background: linear-gradient(180deg, #1a0a2e 0%, #0d1b3e 70%, #1a3a1a 90%, #2d8b2d 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-}
-.flappy-bird {
-    width: 22px;
-    height: 16px;
-    background: #ffcc00;
-    border-radius: 4px;
-    box-shadow: 0 0 12px rgba(255, 204, 0, 0.6);
-    position: absolute;
-    left: 30%;
-    animation: flappyBob 0.6s ease-in-out infinite;
-}
-.flappy-pipe {
-    position: absolute;
-    right: 25%;
-    width: 14px;
-    height: 100%;
-    background: linear-gradient(90deg, #0d6e0d, #10b010 30%, #0d6e0d);
-    box-shadow: 0 0 8px rgba(16, 176, 16, 0.4);
-    clip-path: polygon(0 0, 100% 0, 100% 35%, 120% 35%, 120% 40%, -20% 40%, -20% 35%, 0 35%, 0 65%, -20% 65%, -20% 70%, 120% 70%, 120% 65%, 100% 65%, 100% 100%, 0 100%);
-}
-@keyframes flappyBob {
-    0%, 100% { transform: translateY(8px) rotate(10deg); }
-    50% { transform: translateY(-8px) rotate(-10deg); }
-}
+
 
 .puzzle-preview {
     background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);

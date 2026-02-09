@@ -308,17 +308,38 @@ function initTron() {
         let gameOver = false;
         let winner = 0;
         let disconnected = false;
+        /* Delta tracking: how many path points already sent */
+        let sentP1Idx = p1.path.length;
+        let sentP2Idx = p2.path.length;
+        /* Joiner interpolation: timestamp of last state update */
+        let lastStateTime = performance.now();
         cleanupFunctions.push(() => { try { conn.close(); } catch(e){} try { if (peerRef) peerRef.destroy(); } catch(e){} });
         conn.on('data', (data) => {
             if (data.t === 'dir') remoteDir = data.d;
-            if (data.t === 'state') {
+            if (data.t === 'u') {
+                /* Compact delta update */
                 p1.x = data.p1x; p1.y = data.p1y; p1.dir = data.p1d; p1.alive = data.p1a;
                 p2.x = data.p2x; p2.y = data.p2y; p2.dir = data.p2d; p2.alive = data.p2a;
-                if (data.p1path) p1.path = data.p1path;
-                if (data.p2path) p2.path = data.p2path;
-                for (let r = 0; r < TRON_ROWS; r++) for (let c = 0; c < TRON_COLS; c++) grid[r][c] = data.g[r][c];
+                /* Append new path points and update grid */
+                if (data.n1) {
+                    for (let i = 0; i < data.n1.length; i++) {
+                        const pt = data.n1[i];
+                        p1.path.push(pt);
+                        if (pt[1] >= 0 && pt[1] < TRON_ROWS && pt[0] >= 0 && pt[0] < TRON_COLS)
+                            grid[pt[1]][pt[0]] = 1;
+                    }
+                }
+                if (data.n2) {
+                    for (let i = 0; i < data.n2.length; i++) {
+                        const pt = data.n2[i];
+                        p2.path.push(pt);
+                        if (pt[1] >= 0 && pt[1] < TRON_ROWS && pt[0] >= 0 && pt[0] < TRON_COLS)
+                            grid[pt[1]][pt[0]] = 2;
+                    }
+                }
                 gameOver = data.go;
                 winner = data.win || 0;
+                lastStateTime = performance.now();
             }
         });
         conn.on('close', () => { disconnected = true; });
@@ -326,11 +347,9 @@ function initTron() {
         function canTurn(cur, newD) { return cur === newD || (cur + 2) % 4 !== newD; }
         function nextCell(x, y, d) { return { x: x + TRON_DX[d], y: y + TRON_DY[d] }; }
         function valid(c) { return c.x >= 0 && c.x < TRON_COLS && c.y >= 0 && c.y < TRON_ROWS && grid[c.y][c.x] === 0; }
-        const SEND_INTERVAL_MS = 66;
+        const SEND_INTERVAL_MS = 50;
         function update(now) {
             gameLoop = requestAnimationFrame(update);
-            const dt = (now - lastFrame) / 1000;
-            lastFrame = now;
             if (disconnected) {
                 ctx.fillStyle = '#000';
                 ctx.fillRect(0, 0, TRON_W, TRON_H);
@@ -367,9 +386,18 @@ function initTron() {
                         playSound(winner === 1 ? 800 : 200, 0.2);
                     }
                 }
+                /* Send compact delta: only new path points since last send */
                 if (now - lastSend >= SEND_INTERVAL_MS) {
                     lastSend = now;
-                    conn.send({ t: 'state', p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive, p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive, p1path: p1.path, p2path: p2.path, g: grid, go: gameOver, win: winner });
+                    const n1 = sentP1Idx < p1.path.length ? p1.path.slice(sentP1Idx) : null;
+                    const n2 = sentP2Idx < p2.path.length ? p2.path.slice(sentP2Idx) : null;
+                    sentP1Idx = p1.path.length;
+                    sentP2Idx = p2.path.length;
+                    conn.send({ t: 'u',
+                        p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive,
+                        p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive,
+                        n1: n1, n2: n2, go: gameOver, win: winner
+                    });
                 }
             } else {
                 if (now - lastSend >= SEND_INTERVAL_MS) {
@@ -387,7 +415,10 @@ function initTron() {
                 ctx.fillText(winner === me ? 'YOU WIN' : 'YOU LOSE', TRON_W/2, TRON_H/2 - 10);
                 return;
             }
-            const interp = isHost ? Math.min(1, (now - lastMove) / TRON_MOVE_MS) : 0;
+            /* Interpolation: host uses local move timer, joiner uses time since last state update */
+            const interp = isHost
+                ? Math.min(1, (now - lastMove) / TRON_MOVE_MS)
+                : Math.min(1, (now - lastStateTime) / TRON_MOVE_MS);
             const bikeSize = TRON_CELL - TRON_BIKE_PAD * 2;
             const cx = TRON_CELL / 2;
             ctx.fillStyle = '#0a0a1a';
@@ -410,19 +441,26 @@ function initTron() {
             const h2y = p2.y + TRON_DY[p2.dir] * interp;
             if (p1.alive && p1.path) drawTrailLine(p1.path, '#00ffff', h1x, h1y);
             if (p2.alive && p2.path) drawTrailLine(p2.path, '#ff00ff', h2x, h2y);
+            /* Bike heads: no shadowBlur, use layered rects for glow */
             if (p1.alive) {
+                const bx = h1x * TRON_CELL + TRON_BIKE_PAD;
+                const by = h1y * TRON_CELL + TRON_BIKE_PAD;
+                ctx.globalAlpha = 0.15;
                 ctx.fillStyle = '#00ffff';
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 6;
-                ctx.fillRect(h1x * TRON_CELL + TRON_BIKE_PAD, h1y * TRON_CELL + TRON_BIKE_PAD, bikeSize, bikeSize);
-                ctx.shadowBlur = 0;
+                ctx.fillRect(bx - 2, by - 2, bikeSize + 4, bikeSize + 4);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#00ffff';
+                ctx.fillRect(bx, by, bikeSize, bikeSize);
             }
             if (p2.alive) {
+                const bx = h2x * TRON_CELL + TRON_BIKE_PAD;
+                const by = h2y * TRON_CELL + TRON_BIKE_PAD;
+                ctx.globalAlpha = 0.15;
                 ctx.fillStyle = '#ff00ff';
-                ctx.shadowColor = '#ff00ff';
-                ctx.shadowBlur = 6;
-                ctx.fillRect(h2x * TRON_CELL + TRON_BIKE_PAD, h2y * TRON_CELL + TRON_BIKE_PAD, bikeSize, bikeSize);
-                ctx.shadowBlur = 0;
+                ctx.fillRect(bx - 2, by - 2, bikeSize + 4, bikeSize + 4);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#ff00ff';
+                ctx.fillRect(bx, by, bikeSize, bikeSize);
             }
         }
         gameLoop = requestAnimationFrame(update);

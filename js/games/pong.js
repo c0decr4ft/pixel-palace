@@ -27,7 +27,10 @@ function initPong() {
     canvas.height = PONG_H;
     
     const keys = {};
-    handleKeyDown = (e) => { keys[e.key] = true; };
+    handleKeyDown = (e) => {
+        keys[e.key] = true;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+    };
     handleKeyUp = (e) => { keys[e.key] = false; };
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
@@ -532,7 +535,8 @@ function initPong() {
                     conn.send({ t: 'state', ballX, ballY, ballSpeedX, ballSpeedY, score1, score2, paddle1Y, paddle2Y, winner });
                 }
             } else {
-                paddle2Y = remotePaddle;
+                /* Joiner: paddle2Y is updated by local input above (lines 467-474).
+                   We just send our position to the host periodically. */
                 sendAcc += dt;
                 if (sendAcc >= SEND_INTERVAL) {
                     sendAcc = 0;
