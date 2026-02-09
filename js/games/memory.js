@@ -3,8 +3,8 @@ function initMemory() {
     currentGameTitle.textContent = 'MEMORY';
     gameControls.innerHTML = 'Click cards to match pairs';
     
-    canvas.width = 310;
-    canvas.height = 310;
+    canvas.width = 250;
+    canvas.height = 250;
     
     const symbols = ['★', '♦', '♣', '♥', '●', '■', '▲', '◆'];
     const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8800', '#88ff00'];
@@ -12,9 +12,9 @@ function initMemory() {
     let cards = [];
     const rows = 4;
     const cols = 4;
-    const cardWidth = 64;
-    const cardHeight = 64;
-    const padding = 10;
+    const cardWidth = 52;
+    const cardHeight = 52;
+    const padding = 8;
     
     // Create pairs
     let pairs = [];
@@ -31,8 +31,8 @@ function initMemory() {
         for (let c = 0; c < cols; c++) {
             const pair = pairs[r * cols + c];
             cards.push({
-                x: c * (cardWidth + padding) + 12,
-                y: r * (cardHeight + padding) + 12,
+                x: c * (cardWidth + padding) + 9,
+                y: r * (cardHeight + padding) + 9,
                 symbol: pair.symbol,
                 color: pair.color,
                 flipped: false,
@@ -118,7 +118,7 @@ function initMemory() {
                 ctx.strokeRect(card.x, card.y, cardWidth, cardHeight);
                 
                 ctx.fillStyle = card.color;
-                ctx.font = '24px Arial';
+                ctx.font = '20px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(card.symbol, card.x + cardWidth/2, card.y + cardHeight/2);
@@ -133,7 +133,7 @@ function initMemory() {
                 ctx.strokeRect(card.x + 5, card.y + 5, cardWidth - 10, cardHeight - 10);
                 
                 ctx.fillStyle = '#aa00aa';
-                ctx.font = '24px "Press Start 2P"';
+                ctx.font = '18px "Press Start 2P"';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('?', card.x + cardWidth/2, card.y + cardHeight/2);
