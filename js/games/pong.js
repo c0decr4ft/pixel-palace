@@ -37,28 +37,29 @@ function initPong() {
     
     const touchKeys = {};
 
-    /* ---- Jog-wheel touch control (replaces joystick for Pong) ---- */
+    /* ---- Horizontal roller touch control (volume-wheel style) ---- */
     const wheelWrap = document.createElement('div');
     wheelWrap.className = 'pong-wheel-wrap';
     wheelWrap.innerHTML =
-        '<div class="pong-wheel-disc">' +
+        '<div class="pong-wheel-drum">' +
             '<div class="pong-wheel-ticks"></div>' +
-            '<div class="pong-wheel-grip"></div>' +
-        '</div>';
+            '<div class="pong-wheel-notch"></div>' +
+        '</div>' +
+        '<div class="pong-wheel-label">◀ ROLL ▶</div>';
     gameContainer.appendChild(wheelWrap);
 
-    const wheelDisc = wheelWrap.querySelector('.pong-wheel-ticks');
+    const wheelTicks = wheelWrap.querySelector('.pong-wheel-ticks');
     let wheelTouchId = null;
-    let wheelLastY = 0;
-    let wheelAngle = 0;
-    const WHEEL_DEAD = 3;  // px dead zone per move event
+    let wheelLastX = 0;
+    let wheelOffset = 0;       // cumulative horizontal px offset for tick animation
+    const WHEEL_DEAD = 2;      // px dead zone per move event
 
     function onWheelStart(e) {
         e.preventDefault();
         if (wheelTouchId !== null) return;
         const t = e.changedTouches[0];
         wheelTouchId = t.identifier;
-        wheelLastY = t.clientY;
+        wheelLastX = t.clientX;
         wheelWrap.classList.add('active');
     }
     function onWheelMove(e) {
@@ -66,17 +67,17 @@ function initPong() {
         for (let i = 0; i < e.changedTouches.length; i++) {
             if (e.changedTouches[i].identifier === wheelTouchId) {
                 e.preventDefault();
-                const y = e.changedTouches[i].clientY;
-                const dy = y - wheelLastY;
-                wheelLastY = y;
-                // Rotate the wheel visually (1.8 degrees per pixel of drag)
-                wheelAngle += dy * 1.8;
-                wheelDisc.style.transform = 'rotate(' + wheelAngle + 'deg)';
-                // Set paddle direction
-                if (dy < -WHEEL_DEAD) {
+                const x = e.changedTouches[i].clientX;
+                const dx = x - wheelLastX;
+                wheelLastX = x;
+                // Scroll tick marks horizontally
+                wheelOffset += dx;
+                wheelTicks.style.transform = 'translateX(' + (wheelOffset % 18) + 'px)';
+                // Map horizontal drag to paddle: right = down, left = up
+                if (dx < -WHEEL_DEAD) {
                     touchKeys['ArrowUp'] = true;
                     touchKeys['ArrowDown'] = false;
-                } else if (dy > WHEEL_DEAD) {
+                } else if (dx > WHEEL_DEAD) {
                     touchKeys['ArrowDown'] = true;
                     touchKeys['ArrowUp'] = false;
                 }

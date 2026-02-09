@@ -89,9 +89,10 @@ function initSnake() {
     });
     
     let lastTime = 0;
-    const BASE_SPEED = 200;   // ms per tick at start
-    const MIN_SPEED = 70;     // fastest possible (ms per tick)
-    const SPEED_PER_FOOD = 3; // ms faster per food eaten (very subtle)
+    const isTouch = matchMedia('(pointer: coarse)').matches;
+    const BASE_SPEED = isTouch ? 280 : 200;   // ms per tick at start (slower on mobile)
+    const MIN_SPEED = isTouch ? 110 : 100;    // fastest possible (ms per tick)
+    const SPEED_PER_FOOD = isTouch ? 2 : 1.5; // ms faster per food eaten (very gradual)
     
     function currentSpeed() {
         // Snake starts at length 1, each food adds 1 segment
