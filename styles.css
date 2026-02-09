@@ -543,6 +543,36 @@ body {
     50%, 95% { transform: rotateY(180deg); }
 }
 
+.memory2-preview {
+    background: #050d05;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+}
+.m2-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 22px);
+    gap: 5px;
+}
+.m2-tile {
+    width: 22px;
+    height: 22px;
+    background: #0b2e0b;
+    border: 1px solid #1a5c1a;
+    border-radius: 2px;
+}
+.m2-tile.m2-on {
+    background: #0a1a0a;
+    border-color: #00ff41;
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+    animation: m2pulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes m2pulse {
+    0% { box-shadow: 0 0 4px rgba(0, 255, 65, 0.3); }
+    100% { box-shadow: 0 0 12px rgba(0, 255, 65, 0.7); }
+}
+
 
 
 .puzzle-preview {

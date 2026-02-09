@@ -3,12 +3,12 @@ function initTetris() {
     currentGameTitle.textContent = 'TETRIS';
     gameControls.innerHTML = 'Arrow Keys: ← → Move | ↓ Fast Drop | ↑ Rotate';
     
-    canvas.width = 300;
-    canvas.height = 600;
+    canvas.width = 180;
+    canvas.height = 360;
     
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK_SIZE = 30;
+    const BLOCK_SIZE = 18;
     
     const SHAPES = [
         [[1,1,1,1]], // I
@@ -129,7 +129,7 @@ function initTetris() {
     spawnPiece();
     
     let lastTime = 0;
-    let dropInterval = 500;
+    let dropInterval = 1000;
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
