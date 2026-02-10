@@ -104,29 +104,77 @@ function initSpaceInvaders() {
     document.addEventListener('keyup', handleKeyUp);
 
     const touchKeys = {};
-    function startTouchFire() {
-        if (touchFiring) return;
-        touchFiring = true;
-        doFire();
-        touchFireTimer = setInterval(function() {
-            if (touchFiring) doFire();
-        }, FIRE_COOLDOWN * 1000);
+
+    /* Touch: hold left/right half of screen to move, auto-fire always on */
+    let siTouchId = null;
+    let siAutoFireTimer = null;
+    const isTouch = matchMedia('(pointer: coarse)').matches;
+
+    function onSITouchStart(e) {
+        if (e.touches.length < 1) return;
+        e.preventDefault();
+        siTouchId = e.touches[0].identifier;
+        updateSITouch(e.touches[0]);
+        // Start auto-fire on first touch
+        if (!siAutoFireTimer && isTouch) {
+            doFire();
+            siAutoFireTimer = setInterval(doFire, FIRE_COOLDOWN * 1000);
+        }
     }
-    function stopTouchFire() {
-        touchFiring = false;
-        if (touchFireTimer) { clearInterval(touchFireTimer); touchFireTimer = null; }
+    function onSITouchMove(e) {
+        if (siTouchId === null) return;
+        e.preventDefault();
+        for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === siTouchId) {
+                updateSITouch(e.touches[i]);
+                return;
+            }
+        }
     }
-    addTouchDpad({
-        onLeft: (p) => { touchKeys['ArrowLeft'] = p; },
-        onRight: (p) => { touchKeys['ArrowRight'] = p; },
-        onAction: startTouchFire,
-        onActionEnd: stopTouchFire,
-        actionLabel: 'FIRE'
-    });
+    function onSITouchEnd(e) {
+        if (e.touches.length === 0) {
+            siTouchId = null;
+            touchKeys['ArrowLeft'] = false;
+            touchKeys['ArrowRight'] = false;
+        } else {
+            // Switch to remaining touch
+            siTouchId = e.touches[0].identifier;
+            updateSITouch(e.touches[0]);
+        }
+    }
+    function updateSITouch(touch) {
+        const screenMid = window.innerWidth / 2;
+        if (touch.clientX < screenMid) {
+            touchKeys['ArrowLeft'] = true;
+            touchKeys['ArrowRight'] = false;
+        } else {
+            touchKeys['ArrowRight'] = true;
+            touchKeys['ArrowLeft'] = false;
+        }
+    }
+    function stopSIAutoFire() {
+        if (siAutoFireTimer) { clearInterval(siAutoFireTimer); siAutoFireTimer = null; }
+    }
+
+    if (isTouch) {
+        const siTarget = gameContainer || canvas;
+        siTarget.addEventListener('touchstart', onSITouchStart, { passive: false });
+        siTarget.addEventListener('touchmove', onSITouchMove, { passive: false });
+        siTarget.addEventListener('touchend', onSITouchEnd, { passive: false });
+        siTarget.addEventListener('touchcancel', onSITouchEnd, { passive: false });
+        cleanupFunctions.push(() => {
+            siTarget.removeEventListener('touchstart', onSITouchStart);
+            siTarget.removeEventListener('touchmove', onSITouchMove);
+            siTarget.removeEventListener('touchend', onSITouchEnd);
+            siTarget.removeEventListener('touchcancel', onSITouchEnd);
+            stopSIAutoFire();
+        });
+    }
+
     function clearSpaceKeys() {
         keys['ArrowLeft'] = keys['ArrowRight'] = keys[' '] = false;
         touchKeys['ArrowLeft'] = touchKeys['ArrowRight'] = false;
-        stopTouchFire();
+        stopSIAutoFire();
     }
     window.addEventListener('blur', clearSpaceKeys);
     

@@ -37,83 +37,45 @@ function initPong() {
     
     const touchKeys = {};
 
-    /* ---- Horizontal roller touch control (volume-wheel style) ---- */
-    const wheelWrap = document.createElement('div');
-    wheelWrap.className = 'pong-wheel-wrap';
-    wheelWrap.innerHTML =
-        '<div class="pong-wheel-drum">' +
-            '<div class="pong-wheel-ticks"></div>' +
-            '<div class="pong-wheel-notch"></div>' +
-        '</div>' +
-        '<div class="pong-wheel-label">◀ ROLL ▶</div>';
-    gameContainer.appendChild(wheelWrap);
+    /* ---- Direct touch tracking: paddle follows finger Y position ---- */
+    let touchPaddleY = null;  // null = not touching, otherwise target Y in canvas coords
 
-    const wheelTicks = wheelWrap.querySelector('.pong-wheel-ticks');
-    let wheelTouchId = null;
-    let wheelLastY = 0;
-    let wheelOffset = 0;       // cumulative vertical px offset for tick animation
-    const WHEEL_DEAD = 6;      // px dead zone per move event
-
-    function onWheelStart(e) {
+    function onPongTouchStart(e) {
+        if (e.touches.length < 1) return;
         e.preventDefault();
-        if (wheelTouchId !== null) return;
-        const t = e.changedTouches[0];
-        wheelTouchId = t.identifier;
-        wheelLastY = t.clientY;
-        wheelWrap.classList.add('active');
+        updateTouchPaddle(e.touches[0]);
     }
-    function onWheelMove(e) {
-        if (wheelTouchId === null) return;
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === wheelTouchId) {
-                e.preventDefault();
-                const y = e.changedTouches[i].clientY;
-                const dy = y - wheelLastY;
-                wheelLastY = y;
-                // Scroll tick marks vertically
-                wheelOffset += dy;
-                wheelTicks.style.transform = 'translateY(' + (wheelOffset % 14) + 'px)';
-                // Drag up = paddle up, drag down = paddle down
-                if (dy < -WHEEL_DEAD) {
-                    touchKeys['ArrowUp'] = true;
-                    touchKeys['ArrowDown'] = false;
-                } else if (dy > WHEEL_DEAD) {
-                    touchKeys['ArrowDown'] = true;
-                    touchKeys['ArrowUp'] = false;
-                }
-                return;
-            }
-        }
+    function onPongTouchMove(e) {
+        if (touchPaddleY === null) return;
+        e.preventDefault();
+        if (e.touches.length) updateTouchPaddle(e.touches[0]);
     }
-    function onWheelEnd(e) {
-        if (wheelTouchId === null) return;
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === wheelTouchId) {
-                wheelTouchId = null;
-                touchKeys['ArrowUp'] = false;
-                touchKeys['ArrowDown'] = false;
-                wheelWrap.classList.remove('active');
-                return;
-            }
-        }
+    function onPongTouchEnd(e) {
+        if (e.touches.length === 0) touchPaddleY = null;
     }
-    wheelWrap.addEventListener('touchstart', onWheelStart, { passive: false });
-    document.addEventListener('touchmove', onWheelMove, { passive: false });
-    document.addEventListener('touchend', onWheelEnd, { passive: false });
-    document.addEventListener('touchcancel', onWheelEnd, { passive: false });
+    function updateTouchPaddle(touch) {
+        /* Map the finger's screen Y to a paddle position in canvas coords */
+        const coords = getEventCanvasCoords({ touches: [touch] });
+        if (coords) touchPaddleY = coords.y;
+    }
 
-    function cleanupWheel() {
-        document.removeEventListener('touchmove', onWheelMove);
-        document.removeEventListener('touchend', onWheelEnd);
-        document.removeEventListener('touchcancel', onWheelEnd);
-        wheelWrap.remove();
-    }
-    cleanupFunctions.push(cleanupWheel);
+    const pongTouchTarget = gameContainer || canvas;
+    pongTouchTarget.addEventListener('touchstart', onPongTouchStart, { passive: false });
+    pongTouchTarget.addEventListener('touchmove', onPongTouchMove, { passive: false });
+    pongTouchTarget.addEventListener('touchend', onPongTouchEnd, { passive: false });
+    pongTouchTarget.addEventListener('touchcancel', onPongTouchEnd, { passive: false });
+
+    cleanupFunctions.push(() => {
+        pongTouchTarget.removeEventListener('touchstart', onPongTouchStart);
+        pongTouchTarget.removeEventListener('touchmove', onPongTouchMove);
+        pongTouchTarget.removeEventListener('touchend', onPongTouchEnd);
+        pongTouchTarget.removeEventListener('touchcancel', onPongTouchEnd);
+    });
 
     function clearPongKeys() {
         keys['ArrowUp'] = false; keys['ArrowDown'] = false;
         keys['w'] = false; keys['W'] = false; keys['s'] = false; keys['S'] = false;
-        touchKeys['ArrowUp'] = false; touchKeys['ArrowDown'] = false;
+        touchPaddleY = null;
     }
     window.addEventListener('blur', clearPongKeys);
     
@@ -348,11 +310,18 @@ function initPong() {
                 return;
             }
             
-            if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) {
                 playerY = Math.max(0, playerY - PADDLE_SPEED * dt);
             }
-            if (keys['s'] || keys['S'] || keys['ArrowDown'] || touchKeys['ArrowDown']) {
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) {
                 playerY = Math.min(PONG_H - PADDLE_H, playerY + PADDLE_SPEED * dt);
+            }
+            /* Touch: paddle smoothly tracks finger Y */
+            if (touchPaddleY !== null) {
+                const target = Math.max(0, Math.min(PONG_H - PADDLE_H, touchPaddleY - PADDLE_H / 2));
+                const diff = target - playerY;
+                const maxMove = PADDLE_SPEED * 1.5 * dt;
+                playerY += Math.max(-maxMove, Math.min(maxMove, diff));
             }
             
             const totalScore = playerScore + aiScore;
@@ -536,13 +505,25 @@ function initPong() {
                 return;
             }
             
-            if (keys['w'] || keys['W'] || keys['ArrowUp'] || touchKeys['ArrowUp']) {
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) {
                 if (isHost) paddle1Y = Math.max(0, paddle1Y - PADDLE_SPEED * dt);
                 else paddle2Y = Math.max(0, paddle2Y - PADDLE_SPEED * dt);
             }
-            if (keys['s'] || keys['S'] || keys['ArrowDown'] || touchKeys['ArrowDown']) {
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) {
                 if (isHost) paddle1Y = Math.min(PONG_H - PADDLE_H, paddle1Y + PADDLE_SPEED * dt);
                 else paddle2Y = Math.min(PONG_H - PADDLE_H, paddle2Y + PADDLE_SPEED * dt);
+            }
+            /* Touch: paddle smoothly tracks finger Y */
+            if (touchPaddleY !== null) {
+                const target = Math.max(0, Math.min(PONG_H - PADDLE_H, touchPaddleY - PADDLE_H / 2));
+                const maxMove = PADDLE_SPEED * 1.5 * dt;
+                if (isHost) {
+                    const diff = target - paddle1Y;
+                    paddle1Y += Math.max(-maxMove, Math.min(maxMove, diff));
+                } else {
+                    const diff = target - paddle2Y;
+                    paddle2Y += Math.max(-maxMove, Math.min(maxMove, diff));
+                }
             }
             
             if (isHost) {

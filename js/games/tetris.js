@@ -119,12 +119,67 @@ function initTetris() {
     };
     document.addEventListener('keydown', handleKeyDown);
 
-    addTouchDpad({
-        onLeft: (p) => { if (p && !gameOver && !collision(-1, 0)) pieceX--; },
-        onRight: (p) => { if (p && !gameOver && !collision(1, 0)) pieceX++; },
-        onDown: (p) => { if (p && !gameOver && !collision(0, 1)) pieceY++; },
-        onUp: (p) => { if (p && !gameOver) rotate(); },
-        snapCardinal: true
+    /* Swipe + tap touch controls: swipe L/R to move, swipe down to drop, tap to rotate */
+    let tSwipeStartX = null;
+    let tSwipeStartY = null;
+    let tSwipeStartTime = 0;
+    const T_SWIPE_MIN = 22;   // min px for a swipe
+    const T_TAP_MAX = 12;     // max px movement to count as a tap
+    const T_TAP_TIME = 250;   // max ms for a tap
+    let tSwipeMoved = false;
+    let tLastMoveX = 0;       // for continuous horizontal swiping
+
+    function onTetrisTouchStart(e) {
+        if (e.touches.length !== 1 || gameOver) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        tSwipeStartX = t.clientX;
+        tSwipeStartY = t.clientY;
+        tSwipeStartTime = performance.now();
+        tSwipeMoved = false;
+        tLastMoveX = t.clientX;
+    }
+    function onTetrisTouchMove(e) {
+        if (tSwipeStartX === null || gameOver) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        const dx = t.clientX - tLastMoveX;
+        const dy = t.clientY - tSwipeStartY;
+
+        /* Continuous horizontal movement: every T_SWIPE_MIN px of horizontal drag moves piece */
+        if (Math.abs(dx) >= T_SWIPE_MIN) {
+            if (dx > 0 && !collision(1, 0)) pieceX++;
+            else if (dx < 0 && !collision(-1, 0)) pieceX--;
+            tLastMoveX = t.clientX;
+            tSwipeMoved = true;
+        }
+        /* Swipe down: continuous soft drop */
+        if (dy > T_SWIPE_MIN * 1.5) {
+            if (!collision(0, 1)) pieceY++;
+            tSwipeStartY = t.clientY; // reset so it keeps dropping as you drag
+            tSwipeMoved = true;
+        }
+    }
+    function onTetrisTouchEnd(e) {
+        if (tSwipeStartX === null || gameOver) return;
+        const elapsed = performance.now() - tSwipeStartTime;
+        /* If barely moved and quick tap → rotate */
+        if (!tSwipeMoved && elapsed < T_TAP_TIME) {
+            rotate();
+        }
+        tSwipeStartX = null;
+        tSwipeStartY = null;
+    }
+
+    const tetrisTouchTarget = gameContainer || canvas;
+    tetrisTouchTarget.addEventListener('touchstart', onTetrisTouchStart, { passive: false });
+    tetrisTouchTarget.addEventListener('touchmove', onTetrisTouchMove, { passive: false });
+    tetrisTouchTarget.addEventListener('touchend', onTetrisTouchEnd, { passive: false });
+
+    cleanupFunctions.push(() => {
+        tetrisTouchTarget.removeEventListener('touchstart', onTetrisTouchStart);
+        tetrisTouchTarget.removeEventListener('touchmove', onTetrisTouchMove);
+        tetrisTouchTarget.removeEventListener('touchend', onTetrisTouchEnd);
     });
     
     spawnPiece();
