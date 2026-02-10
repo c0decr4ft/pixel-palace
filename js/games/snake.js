@@ -169,7 +169,7 @@ function initSnake() {
             // Check wall collision
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
                 gameOver = true;
-                playSound(100, 0.5);
+                playGameOverJingle();
                 return;
             }
             
@@ -177,7 +177,7 @@ function initSnake() {
             for (let segment of snake) {
                 if (head.x === segment.x && head.y === segment.y) {
                     gameOver = true;
-                    playSound(100, 0.5);
+                    playGameOverJingle();
                     return;
                 }
             }

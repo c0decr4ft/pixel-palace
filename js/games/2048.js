@@ -142,7 +142,7 @@ function init2048() {
             addRandomTile();
             if (checkGameOver()) {
                 gameOver = true;
-                playSound(100, 0.5);
+                playGameOverJingle();
             }
         }
     }

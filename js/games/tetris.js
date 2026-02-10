@@ -38,6 +38,7 @@ function initTetris() {
         
         if (collision()) {
             gameOver = true;
+            playGameOverJingle();
         }
     }
     

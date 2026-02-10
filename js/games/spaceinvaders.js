@@ -328,7 +328,7 @@ function initSpaceInvaders() {
                         inv.y += 18;
                         if (inv.alive && inv.y > canvas.height - 88) {
                             gameOver = true;
-                            playSound(100, 0.5);
+                            playGameOverJingle();
                         }
                     }
                 } else {
@@ -379,7 +379,7 @@ function initSpaceInvaders() {
                 if (bullet.x >= playerX && bullet.x <= playerX + playerWidth &&
                     bullet.y >= canvas.height - 46 && bullet.y <= canvas.height - 18) {
                     gameOver = true;
-                    playSound(100, 0.5);
+                    playGameOverJingle();
                 }
             }
         }

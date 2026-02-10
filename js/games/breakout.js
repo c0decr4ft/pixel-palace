@@ -219,7 +219,7 @@ function initBreakout() {
                     lives--;
                     if (lives <= 0) {
                         gameOver = true;
-                        playSound(100, 0.5);
+                        playGameOverJingle();
                     } else {
                         playSound(200, 0.3);
                         resetBall(true);

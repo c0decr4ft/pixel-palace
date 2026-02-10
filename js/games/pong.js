@@ -463,11 +463,15 @@ function initPong() {
                 if (data.winner && !winner) {
                     gameOver = true;
                     winner = data.winner;
+                    // Host is p1, joiner is p2
+                    const myRole = isHost ? 'p1' : 'p2';
+                    if (winner === myRole) playSound(800, 0.3);
+                    else playGameOverJingle();
                 }
             }
         });
-        conn.on('close', () => { gameOver = true; });
-        conn.on('error', () => { gameOver = true; });
+        conn.on('close', () => { gameOver = true; playGameOverJingle(); });
+        conn.on('error', () => { gameOver = true; playGameOverJingle(); });
         
         function resetBall() {
             ballX = PONG_W / 2;
@@ -558,7 +562,7 @@ function initPong() {
                     }
                     if (ballX < 0) {
                         score2++;
-                        if (score2 >= PONG_SCORE_TO_WIN) { gameOver = true; winner = 'p2'; }
+                        if (score2 >= PONG_SCORE_TO_WIN) { gameOver = true; winner = 'p2'; playGameOverJingle(); }
                         resetBall();
                         ballAccum = 0;
                         sfxScore2 = true;
@@ -566,7 +570,7 @@ function initPong() {
                     if (ballX > PONG_W) {
                         score1++;
                         updateScore(score1);
-                        if (score1 >= PONG_SCORE_TO_WIN) { gameOver = true; winner = 'p1'; }
+                        if (score1 >= PONG_SCORE_TO_WIN) { gameOver = true; winner = 'p1'; playSound(800, 0.3); }
                         resetBall();
                         ballAccum = 0;
                         sfxScore1 = true;

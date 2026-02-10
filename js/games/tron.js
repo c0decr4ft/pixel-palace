@@ -149,8 +149,8 @@ function initTron() {
                 if (!p1.alive || !p2.alive) {
                     gameOver = true;
                     winner = p1.alive ? 1 : 2;
-                    if (winner === 1) updateScore(1);
-                    playSound(winner === 1 ? 800 : 200, 0.2);
+                    if (winner === 1) { updateScore(1); playSound(800, 0.2); }
+                    else playGameOverJingle();
                 }
             }
             const interp = Math.min(1, (now - lastMove) / moveMs);
@@ -396,8 +396,8 @@ function initTron() {
                     if (!cycle1.alive || !cycle2.alive) {
                         gameOver = true;
                         winner = cycle1.alive ? 1 : 2;
-                        if (winner === 1) updateScore(1);
-                        playSound(winner === 1 ? 800 : 200, 0.2);
+                        if (winner === 1) { updateScore(1); playSound(800, 0.2); }
+                        else playGameOverJingle();
                     }
                 }
                 /* Send compact delta: only new path points since last send.

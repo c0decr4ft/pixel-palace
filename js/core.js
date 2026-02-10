@@ -327,6 +327,47 @@ function startArcadeMusic(gameName) {
     scheduleArcadeMusicStep(0, 0, music);
 }
 
+/* Game Over jingle — Mario-inspired descending melody */
+function playGameOverJingle() {
+    stopArcadeMusic();
+    if ((!arcadeMusicEnabled && !soundEffectsEnabled) || !audioCtx || audioCtx.state === 'closed') return;
+    // Notes: [frequency, startTime (s), duration (s)]
+    const notes = [
+        [494, 0.00, 0.15],   // B4
+        [466, 0.18, 0.15],   // Bb4
+        [440, 0.36, 0.18],   // A4
+        [0,   0.56, 0.08],   // rest
+        [392, 0.64, 0.12],   // G4
+        [370, 0.78, 0.12],   // F#4
+        [330, 0.92, 0.12],   // E4
+        [0,   1.06, 0.06],   // rest
+        [262, 1.12, 0.15],   // C4
+        [294, 1.30, 0.12],   // D4
+        [220, 1.44, 0.12],   // A3
+        [196, 1.58, 0.18],   // G3
+        [0,   1.78, 0.1],    // rest
+        [165, 1.88, 0.22],   // E3
+        [147, 2.12, 0.25],   // D3
+        [131, 2.40, 0.5],    // C3 (long final)
+    ];
+    const t0 = audioCtx.currentTime + 0.05;
+    try {
+        for (const [freq, start, dur] of notes) {
+            if (freq === 0) continue;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            gain.gain.setValueAtTime(0.08, t0 + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + start + dur);
+            osc.start(t0 + start);
+            osc.stop(t0 + start + dur + 0.05);
+        }
+    } catch (e) {}
+}
+
 function playSound(frequency, duration, type = 'square') {
     if (!soundEffectsEnabled || !audioCtx || audioCtx.state === 'closed') return;
     try {
