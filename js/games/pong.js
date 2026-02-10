@@ -39,14 +39,15 @@ function initPong() {
 
     /* ---- Direct touch tracking: paddle follows finger Y position ---- */
     let touchPaddleY = null;  // null = not touching, otherwise target Y in canvas coords
+    let pongGameActive = false; // only track touches once actual gameplay starts
 
     function onPongTouchStart(e) {
-        if (e.touches.length < 1) return;
+        if (!pongGameActive || e.touches.length < 1) return;
         e.preventDefault();
         updateTouchPaddle(e.touches[0]);
     }
     function onPongTouchMove(e) {
-        if (touchPaddleY === null) return;
+        if (!pongGameActive || touchPaddleY === null) return;
         e.preventDefault();
         if (e.touches.length) updateTouchPaddle(e.touches[0]);
     }
@@ -258,6 +259,7 @@ function initPong() {
     }
     
         function startPongAI() {
+        pongGameActive = true;
         let playerY = PONG_H / 2 - PADDLE_H / 2;
         let aiY = PONG_H / 2 - PADDLE_H / 2;
         let aiTargetY = aiY;
@@ -429,6 +431,7 @@ function initPong() {
     }
     
     function startPongOnline(conn, isHost, peerRef) {
+        pongGameActive = true;
         let paddle1Y = PONG_H / 2 - PADDLE_H / 2;
         let paddle2Y = PONG_H / 2 - PADDLE_H / 2;
         let ballX = PONG_W / 2;
