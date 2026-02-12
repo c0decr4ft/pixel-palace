@@ -11,13 +11,7 @@ const PONG_DASH = [10, 10];
 const PONG_NO_DASH = [];
 const PONG_SCORE_FONT = '48px "Press Start 2P"';
 
-function randomRoomCode() {
-    /* Exclude A,S,D,W so they aren't captured by game controls when typing the code */
-    const chars = 'BCEFGHJKLMNPQRTVXYZ23456789';
-    let s = '';
-    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
-    return s;
-}
+// Room code generation moved to core.js: generateRoomCode()
 
 function initPong() {
     currentGameTitle.textContent = 'PONG';
@@ -167,11 +161,13 @@ function initPong() {
         createBtn.className = 'pong-online-btn';
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
-            const roomCode = randomRoomCode();
+            const roomCode = generateRoomCode('P');
+            const secret = generateSecret();
+            const fullCode = roomCode + '-' + secret.slice(0, 8);
             const peer = new Peer(roomCode, { debug: 0 });
             const codeEl = document.createElement('div');
             codeEl.className = 'pong-room-code';
-            codeEl.textContent = roomCode;
+            codeEl.textContent = fullCode;
             const waitEl = document.createElement('p');
             waitEl.className = 'pong-waiting-msg';
             waitEl.textContent = 'Share this code. When someone joins, the game starts.';
@@ -190,11 +186,11 @@ function initPong() {
             });
             btns.appendChild(cancelBtn);
             peer.on('open', () => {});
-            peer.on('connection', (conn) => {
-                conn.on('open', () => {
-                    overlay.remove();
-                    startPongOnline(conn, true, peer);
-                });
+            hostVerifyConnection(peer, secret.slice(0, 8), (conn) => {
+                overlay.remove();
+                startPongOnline(conn, true, peer);
+            }, () => {
+                waitEl.textContent = 'Unauthorized connection rejected.';
             });
             peer.on('error', (err) => {
                 waitEl.textContent = 'Error: ' + (err.message || 'Could not create game. Try again.');
@@ -210,8 +206,8 @@ function initPong() {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'pong-join-input';
-            input.placeholder = 'e.g. AB3XY9';
-            input.maxLength = 6;
+            input.placeholder = 'Paste full code';
+            input.maxLength = 30;
             input.autocomplete = 'off';
             input.setAttribute('inputmode', 'text');
             input.setAttribute('autocapitalize', 'characters');
@@ -227,18 +223,24 @@ function initPong() {
             btns.appendChild(backBtn);
             input.focus();
             goBtn.addEventListener('click', () => {
-                const code = String(input.value).trim().toUpperCase().slice(0, 6);
-                if (!code || code.length < 4) return;
+                const raw = String(input.value).trim().toUpperCase();
+                // Code format: ROOMCODE-SECRET
+                const dashIdx = raw.indexOf('-');
+                const peerId = dashIdx > 0 ? raw.slice(0, dashIdx) : raw;
+                const secret = dashIdx > 0 ? raw.slice(dashIdx + 1) : '';
+                if (!peerId || peerId.length < 4) return;
                 const peer = new Peer(undefined, { debug: 0 });
                 peer.on('open', () => {
-                    const conn = peer.connect(code);
+                    const conn = peer.connect(peerId);
                     if (!conn) {
                         overlay.querySelector('h3').textContent = 'Could not connect. Check code.';
                         return;
                     }
-                    conn.on('open', () => {
+                    joinerAuthenticate(conn, secret, () => {
                         overlay.remove();
                         startPongOnline(conn, false, peer);
+                    }, (msg) => {
+                        overlay.querySelector('h3').textContent = msg || 'Authentication failed.';
                     });
                     conn.on('error', () => {
                         overlay.querySelector('h3').textContent = 'Connection failed. Check code.';
@@ -449,21 +451,22 @@ function initPong() {
             try { if (peerRef) peerRef.destroy(); } catch (e) {}
         });
         
-        conn.on('data', (data) => {
-            if (data.t === 'paddle') remotePaddle = data.y;
+        conn.on('data', (raw) => {
+            const data = sanitizePeerData(raw);
+            if (!data) return;
+            if (data.t === 'paddle' && typeof data.y === 'number' && isFinite(data.y)) remotePaddle = data.y;
             if (data.t === 'state') {
-                ballX = data.ballX;
-                ballY = data.ballY;
-                ballSpeedX = data.ballSpeedX;
-                ballSpeedY = data.ballSpeedY;
-                score1 = data.score1;
-                score2 = data.score2;
-                paddle1Y = data.paddle1Y;
+                if (typeof data.ballX === 'number') ballX = data.ballX;
+                if (typeof data.ballY === 'number') ballY = data.ballY;
+                if (typeof data.ballSpeedX === 'number') ballSpeedX = data.ballSpeedX;
+                if (typeof data.ballSpeedY === 'number') ballSpeedY = data.ballSpeedY;
+                if (typeof data.score1 === 'number') score1 = Math.floor(data.score1);
+                if (typeof data.score2 === 'number') score2 = Math.floor(data.score2);
+                if (typeof data.paddle1Y === 'number') paddle1Y = data.paddle1Y;
                 if (isHost) paddle2Y = remotePaddle;
-                if (data.winner && !winner) {
+                if ((data.winner === 'p1' || data.winner === 'p2') && !winner) {
                     gameOver = true;
                     winner = data.winner;
-                    // Host is p1, joiner is p2
                     const myRole = isHost ? 'p1' : 'p2';
                     if (winner === myRole) playSound(800, 0.3);
                     else playGameOverJingle();

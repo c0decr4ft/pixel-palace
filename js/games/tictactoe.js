@@ -1,10 +1,5 @@
 // === TIC TAC TOE ===
-function randomTTTCode() {
-    const chars = 'BCEFGHJKLMNPQRTVXYZ23456789';
-    let s = '';
-    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
-    return 'TTT' + s;
-}
+// Room code generation moved to core.js: generateRoomCode()
 
 function initTicTacToe() {
     currentGameTitle.textContent = 'TIC TAC TOE';
@@ -50,7 +45,7 @@ function initTicTacToe() {
     const btnOnline = document.createElement('button');
     btnOnline.type = 'button';
     btnOnline.className = 'ttt-mode-btn';
-    btnOnline.textContent = 'Online Play';
+    btnOnline.textContent = '2 Players';
     btnOnline.addEventListener('click', () => { modeOverlay.remove(); showOnlineLobby(); });
 
     modeBtns.appendChild(btnAI);
@@ -81,12 +76,16 @@ function initTicTacToe() {
         gameActive = true;
         startArcadeMusic('tictactoe');
 
-        conn.on('data', (data) => {
-            if (data.type === 'move' && data.r != null && data.c != null) {
-                // Remote player placed a mark
+        conn.on('data', (raw) => {
+            const data = sanitizePeerData(raw);
+            if (!data) return;
+            if (data.type === 'move') {
+                const r = typeof data.r === 'number' ? Math.floor(data.r) : -1;
+                const c = typeof data.c === 'number' ? Math.floor(data.c) : -1;
+                if (r < 0 || r > 2 || c < 0 || c > 2) return;
                 const remoteMark = myMark === 'X' ? 'O' : 'X';
-                if (board[data.r][data.c] || turn !== remoteMark || winner) return;
-                board[data.r][data.c] = remoteMark;
+                if (board[r][c] || turn !== remoteMark || winner) return;
+                board[r][c] = remoteMark;
                 playSound(remoteMark === 'X' ? 440 : 330, 0.08);
                 const result = checkWin(board);
                 if (result) {
@@ -149,11 +148,13 @@ function initTicTacToe() {
         createBtn.className = 'ttt-mode-btn';
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
-            const roomCode = randomTTTCode();
+            const roomCode = generateRoomCode('X');
+            const secret = generateSecret().slice(0, 8);
+            const fullCode = roomCode + '-' + secret;
             const p = new Peer(roomCode, { debug: 0 });
             const codeEl = document.createElement('div');
             codeEl.className = 'pong-room-code';
-            codeEl.textContent = roomCode;
+            codeEl.textContent = fullCode;
             const waitEl = document.createElement('p');
             waitEl.className = 'pong-waiting-msg';
             waitEl.textContent = 'Share this code. When someone joins, the game starts.';
@@ -172,11 +173,11 @@ function initTicTacToe() {
             });
             btns.appendChild(cancelBtn);
             p.on('open', () => {});
-            p.on('connection', (c) => {
-                c.on('open', () => {
-                    overlay.remove();
-                    startTTTOnline(c, true, p);
-                });
+            hostVerifyConnection(p, secret, (c) => {
+                overlay.remove();
+                startTTTOnline(c, true, p);
+            }, () => {
+                waitEl.textContent = 'Unauthorized connection rejected.';
             });
             p.on('error', (err) => {
                 waitEl.textContent = 'Error: ' + (err.message || 'Could not create game. Try again.');
@@ -193,8 +194,8 @@ function initTicTacToe() {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'pong-join-input';
-            input.placeholder = 'e.g. TTTAB3XY9';
-            input.maxLength = 9;
+            input.placeholder = 'Paste full code';
+            input.maxLength = 30;
             input.autocomplete = 'off';
             input.setAttribute('inputmode', 'text');
             input.setAttribute('autocapitalize', 'characters');
@@ -210,18 +211,23 @@ function initTicTacToe() {
             btns.appendChild(backBtn);
             input.focus();
             goBtn.addEventListener('click', () => {
-                const code = String(input.value).trim().toUpperCase();
-                if (!code || code.length < 4) return;
+                const raw = String(input.value).trim().toUpperCase();
+                const dashIdx = raw.indexOf('-');
+                const peerId = dashIdx > 0 ? raw.slice(0, dashIdx) : raw;
+                const secret = dashIdx > 0 ? raw.slice(dashIdx + 1) : '';
+                if (!peerId || peerId.length < 4) return;
                 const p = new Peer(undefined, { debug: 0 });
                 p.on('open', () => {
-                    const c = p.connect(code);
+                    const c = p.connect(peerId);
                     if (!c) {
                         overlay.querySelector('h3').textContent = 'Could not connect. Check code.';
                         return;
                     }
-                    c.on('open', () => {
+                    joinerAuthenticate(c, secret, () => {
                         overlay.remove();
                         startTTTOnline(c, false, p);
+                    }, (msg) => {
+                        overlay.querySelector('h3').textContent = msg || 'Authentication failed.';
                     });
                     c.on('error', () => {
                         overlay.querySelector('h3').textContent = 'Connection failed. Check code.';

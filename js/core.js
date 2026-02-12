@@ -1,5 +1,78 @@
 // === PIXEL PALACE - CORE (shared globals, lobby, start/stop game, audio, touch) ===
 
+// === SECURITY HARDENING ===
+(function securityInit() {
+    'use strict';
+
+    // 1. Anti-clickjacking: break out of iframes
+    if (window.top !== window.self) {
+        try { window.top.location = window.self.location; } catch (e) {
+            // CSP may block this; hide content as fallback
+            document.documentElement.style.display = 'none';
+        }
+    }
+
+    // 2. Protect against prototype pollution — lock down __proto__ setter
+    //    This blocks the most common prototype-pollution attack vector
+    //    without breaking third-party libraries
+    try {
+        Object.defineProperty(Object.prototype, '__proto__', {
+            get() { return Object.getPrototypeOf(this); },
+            set() { /* silently block __proto__ assignment */ },
+            configurable: false
+        });
+    } catch (e) { /* already locked or env restricts this */ }
+
+    // 3. Disable dangerous globals that should never be used in our app
+    try {
+        Object.defineProperty(window, 'eval', { value: function() {
+            throw new Error('eval() is disabled for security');
+        }, writable: false, configurable: false });
+    } catch (e) {}
+    try {
+        // Block document.write (XSS injection vector)
+        Document.prototype.write = function() {
+            throw new Error('document.write() is disabled for security');
+        };
+        Document.prototype.writeln = function() {
+            throw new Error('document.writeln() is disabled for security');
+        };
+    } catch (e) {}
+})();
+
+// === SAFE DATA HELPERS ===
+// Sanitize data received over PeerJS — only allow known safe types/values
+function sanitizePeerData(data) {
+    if (data === null || data === undefined) return null;
+    // Must be a plain object
+    if (typeof data !== 'object' || Array.isArray(data)) return null;
+    // Strip any __proto__ or constructor attacks
+    const clean = Object.create(null);
+    for (const key of Object.keys(data)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+        const val = data[key];
+        // Only allow primitives (string, number, boolean, null) — no nested objects or functions
+        if (val === null || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+            clean[key] = val;
+        }
+    }
+    return clean;
+}
+
+// Safely read a string from localStorage (returns fallback on any issue)
+function safeStorageGet(key, fallback) {
+    try {
+        const val = localStorage.getItem(key);
+        if (val === null) return fallback;
+        if (typeof val !== 'string') return fallback;
+        // Limit length to prevent storage-bombing
+        if (val.length > 1024) return fallback;
+        return val;
+    } catch (e) {
+        return fallback;
+    }
+}
+
 // DOM Elements
 const lobby = document.getElementById('lobby');
 const gameContainer = document.getElementById('gameContainer');
@@ -107,10 +180,8 @@ const STORAGE_SFX = 'pixelpalace_sfx';
 const STORAGE_MUSIC = 'pixelpalace_music';
 let soundEffectsEnabled = true;
 let arcadeMusicEnabled = true;
-try {
-    if (localStorage.getItem(STORAGE_SFX) === '0') soundEffectsEnabled = false;
-    if (localStorage.getItem(STORAGE_MUSIC) === '0') arcadeMusicEnabled = false;
-} catch (e) {}
+if (safeStorageGet(STORAGE_SFX, '1') === '0') soundEffectsEnabled = false;
+if (safeStorageGet(STORAGE_MUSIC, '1') === '0') arcadeMusicEnabled = false;
 
 // Per-game background music — each game gets its own melody, wave type, and feel
 let arcadeMusicOsc = null;
@@ -380,6 +451,86 @@ function playGameOverJingle() {
             osc.stop(t0 + start + dur + 0.05);
         }
     } catch (e) {}
+}
+
+// === SECURE ROOM CODES & HANDSHAKE ===
+// Cryptographically random room code — 12 chars from a safe alphabet
+function generateRoomCode(prefix) {
+    const ALPHABET = 'BCEFGHJKLMNPQRTVXYZ23456789';
+    const LENGTH = 12;
+    const arr = new Uint8Array(LENGTH);
+    crypto.getRandomValues(arr);
+    let code = '';
+    for (let i = 0; i < LENGTH; i++) code += ALPHABET[arr[i] % ALPHABET.length];
+    return (prefix || '') + code;
+}
+
+// Generate a handshake secret (sent inside PeerJS metadata and verified on connect)
+function generateSecret() {
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Host: wrap peer.on('connection') with secret verification
+// Returns a cleanup function. onVerified(conn) is called only if the joiner sends the right secret.
+function hostVerifyConnection(peerInstance, secret, onVerified, onReject) {
+    function handler(conn) {
+        conn.on('open', () => {
+            // Wait for the joiner to send the secret
+            let verified = false;
+            const timeout = setTimeout(() => {
+                if (!verified) { try { conn.close(); } catch(e){} }
+            }, 8000); // 8 second timeout
+            conn.on('data', function authHandler(raw) {
+                if (verified) return;
+                const data = sanitizePeerData(raw);
+                if (data && data.type === '__auth' && typeof data.secret === 'string' && data.secret === secret) {
+                    verified = true;
+                    clearTimeout(timeout);
+                    try { conn.send({ type: '__auth_ok' }); } catch(e){}
+                    conn.off('data', authHandler);
+                    onVerified(conn);
+                } else {
+                    clearTimeout(timeout);
+                    try { conn.send({ type: '__auth_fail' }); } catch(e){}
+                    setTimeout(() => { try { conn.close(); } catch(e){} }, 200);
+                    if (onReject) onReject();
+                }
+            });
+        });
+    }
+    peerInstance.on('connection', handler);
+}
+
+// Joiner: after connection opens, send secret and wait for OK
+function joinerAuthenticate(conn, secret, onSuccess, onFail) {
+    let done = false;
+    const timeout = setTimeout(() => {
+        if (!done) { done = true; onFail('Timed out waiting for host.'); }
+    }, 8000);
+    conn.on('open', () => {
+        try { conn.send({ type: '__auth', secret }); } catch(e){}
+    });
+    conn.on('data', function authHandler(raw) {
+        if (done) return;
+        const data = sanitizePeerData(raw);
+        if (!data) return;
+        if (data.type === '__auth_ok') {
+            done = true;
+            clearTimeout(timeout);
+            conn.off('data', authHandler);
+            onSuccess();
+        } else if (data.type === '__auth_fail') {
+            done = true;
+            clearTimeout(timeout);
+            conn.off('data', authHandler);
+            onFail('Wrong code or connection rejected.');
+        }
+    });
+    conn.on('error', () => {
+        if (!done) { done = true; clearTimeout(timeout); onFail('Connection error.'); }
+    });
 }
 
 function playSound(frequency, duration, type = 'square') {

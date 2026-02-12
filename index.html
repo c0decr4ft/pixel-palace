@@ -4,11 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>PIXEL PALACE - Game Center</title>
+
+    <!-- === SECURITY HEADERS === -->
+    <!-- Content Security Policy: blocks XSS, unauthorized scripts, and data exfiltration -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'none';
+        script-src  'self' https://unpkg.com;
+        style-src   'self' https://fonts.googleapis.com 'unsafe-inline';
+        font-src    https://fonts.gstatic.com;
+        img-src     'self' data:;
+        connect-src 'self' https://*.peerjs.com wss://*.peerjs.com wss://*.peer.ooo https://unpkg.com;
+        frame-src   'none';
+        object-src  'none';
+        base-uri    'self';
+        form-action 'none';
+    ">
+    <!-- Prevent clickjacking — disallow embedding in iframes -->
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <!-- Prevent MIME-type sniffing -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <!-- Referrer policy — don't leak full URLs to external sites -->
+    <meta name="referrer" content="no-referrer">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <!-- PeerJS with Subresource Integrity — guarantees the CDN file hasn't been tampered with -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"
+            integrity="sha384-PMNj1TmCgXfW24/rfIyxYSAWwj2mffkMfguUWv08iNFcy0kTC0JN7E/tE+pJ7+fa"
+            crossorigin="anonymous"></script>
 </head>
 <body>
     <div class="scanlines"></div>

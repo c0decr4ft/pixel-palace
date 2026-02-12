@@ -227,11 +227,13 @@ function initTron() {
         createBtn.className = 'pong-online-btn';
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
-            const roomCode = randomRoomCode();
+            const roomCode = generateRoomCode('T');
+            const secret = generateSecret().slice(0, 8);
+            const fullCode = roomCode + '-' + secret;
             const peer = new Peer(roomCode, { debug: 0 });
             const codeEl = document.createElement('div');
             codeEl.className = 'pong-room-code';
-            codeEl.textContent = roomCode;
+            codeEl.textContent = fullCode;
             const waitEl = document.createElement('p');
             waitEl.className = 'pong-waiting-msg';
             waitEl.textContent = 'Share this code. When someone joins, the game starts.';
@@ -246,8 +248,10 @@ function initTron() {
             cancelBtn.addEventListener('click', () => { overlay.remove(); try { peer.destroy(); } catch(e){} gameContainer.appendChild(modeOverlay); });
             btns.appendChild(cancelBtn);
             peer.on('open', () => {});
-            peer.on('connection', (conn) => {
-                conn.on('open', () => { overlay.remove(); startTronOnline(conn, true, peer); });
+            hostVerifyConnection(peer, secret, (conn) => {
+                overlay.remove(); startTronOnline(conn, true, peer);
+            }, () => {
+                waitEl.textContent = 'Unauthorized connection rejected.';
             });
             peer.on('error', (err) => { waitEl.textContent = 'Error: ' + (err.message || 'Could not create game.'); });
             cleanupFunctions.push(() => { try { peer.destroy(); } catch(e) {} });
@@ -260,8 +264,8 @@ function initTron() {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'pong-join-input';
-            input.placeholder = 'e.g. AB3XY9';
-            input.maxLength = 6;
+            input.placeholder = 'Paste full code';
+            input.maxLength = 30;
             input.autocomplete = 'off';
             input.setAttribute('inputmode', 'text');
             input.setAttribute('autocapitalize', 'characters');
@@ -277,13 +281,20 @@ function initTron() {
             btns.appendChild(backBtn);
             input.focus();
             goBtn.addEventListener('click', () => {
-                const code = String(input.value).trim().toUpperCase().slice(0, 6);
-                if (!code || code.length < 4) return;
+                const raw = String(input.value).trim().toUpperCase();
+                const dashIdx = raw.indexOf('-');
+                const peerId = dashIdx > 0 ? raw.slice(0, dashIdx) : raw;
+                const secret = dashIdx > 0 ? raw.slice(dashIdx + 1) : '';
+                if (!peerId || peerId.length < 4) return;
                 const peer = new Peer(undefined, { debug: 0 });
                 peer.on('open', () => {
-                    const conn = peer.connect(code);
+                    const conn = peer.connect(peerId);
                     if (!conn) { overlay.querySelector('h3').textContent = 'Could not connect.'; return; }
-                    conn.on('open', () => { overlay.remove(); startTronOnline(conn, false, peer); });
+                    joinerAuthenticate(conn, secret, () => {
+                        overlay.remove(); startTronOnline(conn, false, peer);
+                    }, (msg) => {
+                        overlay.querySelector('h3').textContent = msg || 'Authentication failed.';
+                    });
                     conn.on('error', () => { overlay.querySelector('h3').textContent = 'Connection failed. Check code.'; });
                 });
                 peer.on('error', (err) => { overlay.querySelector('h3').textContent = 'Error: ' + (err.message || 'Try again.'); });
@@ -323,36 +334,52 @@ function initTron() {
         let hostLastSentDir1 = p1.dir;
         let hostLastSentDir2 = p2.dir;
         cleanupFunctions.push(() => { try { conn.close(); } catch(e){} try { if (peerRef) peerRef.destroy(); } catch(e){} });
-        conn.on('data', (data) => {
-            if (data.t === 'dir') remoteDir = data.d;
-            if (data.t === 'u') {
-                /* Detect whether the head position actually moved */
-                const moved = (p1.x !== data.p1x || p1.y !== data.p1y ||
-                               p2.x !== data.p2x || p2.y !== data.p2y);
-                /* Compact delta update */
-                p1.x = data.p1x; p1.y = data.p1y; p1.dir = data.p1d; p1.alive = data.p1a;
-                p2.x = data.p2x; p2.y = data.p2y; p2.dir = data.p2d; p2.alive = data.p2a;
-                /* Append new path points and update grid */
-                if (data.n1) {
-                    for (let i = 0; i < data.n1.length; i++) {
-                        const pt = data.n1[i];
-                        p1.path.push(pt);
-                        if (pt[1] >= 0 && pt[1] < TRON_ROWS && pt[0] >= 0 && pt[0] < TRON_COLS)
-                            grid[pt[1]][pt[0]] = 1;
-                    }
+        // Validate incoming path arrays — must be arrays of [number, number]
+        function validatePathArray(arr) {
+            if (!Array.isArray(arr)) return [];
+            const safe = [];
+            for (let i = 0; i < arr.length && i < 2000; i++) {
+                const pt = arr[i];
+                if (Array.isArray(pt) && pt.length >= 2 &&
+                    typeof pt[0] === 'number' && isFinite(pt[0]) &&
+                    typeof pt[1] === 'number' && isFinite(pt[1])) {
+                    safe.push([Math.floor(pt[0]), Math.floor(pt[1])]);
                 }
-                if (data.n2) {
-                    for (let i = 0; i < data.n2.length; i++) {
-                        const pt = data.n2[i];
-                        p2.path.push(pt);
-                        if (pt[1] >= 0 && pt[1] < TRON_ROWS && pt[0] >= 0 && pt[0] < TRON_COLS)
-                            grid[pt[1]][pt[0]] = 2;
-                    }
+            }
+            return safe;
+        }
+        conn.on('data', (raw) => {
+            if (!raw || typeof raw !== 'object') return;
+            const t = raw.t;
+            if (t === 'dir' && typeof raw.d === 'number' && raw.d >= 0 && raw.d <= 3) {
+                remoteDir = Math.floor(raw.d);
+            }
+            if (t === 'u') {
+                const p1x = typeof raw.p1x === 'number' ? Math.floor(raw.p1x) : p1.x;
+                const p1y = typeof raw.p1y === 'number' ? Math.floor(raw.p1y) : p1.y;
+                const p2x = typeof raw.p2x === 'number' ? Math.floor(raw.p2x) : p2.x;
+                const p2y = typeof raw.p2y === 'number' ? Math.floor(raw.p2y) : p2.y;
+                const moved = (p1.x !== p1x || p1.y !== p1y || p2.x !== p2x || p2.y !== p2y);
+                p1.x = p1x; p1.y = p1y;
+                p1.dir = typeof raw.p1d === 'number' ? Math.floor(raw.p1d) : p1.dir;
+                p1.alive = !!raw.p1a;
+                p2.x = p2x; p2.y = p2y;
+                p2.dir = typeof raw.p2d === 'number' ? Math.floor(raw.p2d) : p2.dir;
+                p2.alive = !!raw.p2a;
+                const n1 = validatePathArray(raw.n1);
+                for (const pt of n1) {
+                    p1.path.push(pt);
+                    if (pt[1] >= 0 && pt[1] < TRON_ROWS && pt[0] >= 0 && pt[0] < TRON_COLS)
+                        grid[pt[1]][pt[0]] = 1;
                 }
-                gameOver = data.go;
-                winner = data.win || 0;
-                /* Only reset interpolation timer when heads actually moved,
-                   so the smooth projection isn't interrupted by redundant updates */
+                const n2 = validatePathArray(raw.n2);
+                for (const pt of n2) {
+                    p2.path.push(pt);
+                    if (pt[1] >= 0 && pt[1] < TRON_ROWS && pt[0] >= 0 && pt[0] < TRON_COLS)
+                        grid[pt[1]][pt[0]] = 2;
+                }
+                gameOver = !!raw.go;
+                winner = (raw.win === 1 || raw.win === 2) ? raw.win : 0;
                 if (moved) lastMoveTime = performance.now();
             }
         });
