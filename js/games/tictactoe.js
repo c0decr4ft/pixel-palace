@@ -149,7 +149,7 @@ function initTicTacToe() {
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
             const roomCode = generateRoomCode('X');
-            const secret = generateSecret().slice(0, 8);
+            const secret = generateSecret().slice(0, 4);
             const fullCode = roomCode + '-' + secret;
             const p = new Peer(roomCode, { debug: 0 });
             const codeEl = document.createElement('div');

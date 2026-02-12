@@ -162,8 +162,8 @@ function initPong() {
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
             const roomCode = generateRoomCode('P');
-            const secret = generateSecret();
-            const fullCode = roomCode + '-' + secret.slice(0, 8);
+            const secret = generateSecret().slice(0, 4);
+            const fullCode = roomCode + '-' + secret;
             const peer = new Peer(roomCode, { debug: 0 });
             const codeEl = document.createElement('div');
             codeEl.className = 'pong-room-code';
@@ -186,7 +186,7 @@ function initPong() {
             });
             btns.appendChild(cancelBtn);
             peer.on('open', () => {});
-            hostVerifyConnection(peer, secret.slice(0, 8), (conn) => {
+            hostVerifyConnection(peer, secret, (conn) => {
                 overlay.remove();
                 startPongOnline(conn, true, peer);
             }, () => {

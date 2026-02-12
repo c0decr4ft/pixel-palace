@@ -457,7 +457,7 @@ function playGameOverJingle() {
 // Cryptographically random room code — 12 chars from a safe alphabet
 function generateRoomCode(prefix) {
     const ALPHABET = 'BCEFGHJKLMNPQRTVXYZ23456789';
-    const LENGTH = 12;
+    const LENGTH = 6;
     const arr = new Uint8Array(LENGTH);
     crypto.getRandomValues(arr);
     let code = '';
