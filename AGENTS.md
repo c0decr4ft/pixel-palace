@@ -35,6 +35,7 @@ pixel-palace/
 │       ├── 2048.js
 │       ├── simonsays.js
 │       ├── frogger.js
+│       ├── tictactoe.js
 │       └── pacman.js
 ├── README.md
 ├── AGENTS.md

@@ -279,6 +279,20 @@ const FALLBACK_MUSIC = { wave: 'square', vol: 0.05, tracks: [
     ]
 ]};
 
+/* Tic Tac Toe — playful, quirky chip-tune */
+GAME_MUSIC.tictactoe = { wave: 'square', vol: 0.04, tracks: [
+    [
+        [523, 0.12], [587, 0.12], [659, 0.12], [523, 0.12],
+        [0, 0.06],
+        [494, 0.12], [440, 0.12], [392, 0.18],
+        [0, 0.1],
+        [330, 0.12], [392, 0.12], [440, 0.15], [494, 0.12],
+        [0, 0.06],
+        [523, 0.12], [659, 0.15], [587, 0.25],
+        [0, 0.15],
+    ]
+]};
+
 function stopArcadeMusic() {
     if (arcadeMusicTimeout) clearTimeout(arcadeMusicTimeout);
     arcadeMusicTimeout = null;
@@ -480,6 +494,7 @@ const GAME_DISPLAY_NAMES = {
     spaceinvaders: 'SPACE INVADERS',
     memory: 'MEMORY',
     '2048': '2048',
+    tictactoe: 'TIC TAC TOE',
 };
 
 function startGame(gameName) {
@@ -516,6 +531,7 @@ function startGame(gameName) {
         case 'spaceinvaders': initSpaceInvaders(); break;
         case 'memory': initMemory2(); break;
         case '2048': init2048(); break;
+        case 'tictactoe': initTicTacToe(); break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
             lobby.style.display = 'block';

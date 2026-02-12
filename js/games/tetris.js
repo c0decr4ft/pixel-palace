@@ -120,7 +120,7 @@ function initTetris() {
     };
     document.addEventListener('keydown', handleKeyDown);
 
-    /* Swipe + tap touch controls: swipe L/R to move, swipe down to drop, tap to rotate */
+``    /* Swipe + tap touch controls: swipe L/R to move, swipe down to drop, tap to rotate */
     let tSwipeStartX = null;
     let tSwipeStartY = null;
     let tSwipeStartTime = 0;

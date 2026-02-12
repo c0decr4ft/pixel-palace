@@ -2432,3 +2432,78 @@ body.game-active #gameCanvas {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--neon-cyan);
 }
+
+/* === TIC TAC TOE === */
+/* Cabinet preview */
+.ttt-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ttt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 24px);
+    grid-template-rows: repeat(3, 24px);
+    gap: 4px;
+}
+.ttt-grid span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 2px;
+}
+.ttt-x {
+    color: #0ff0fc;
+    text-shadow: 0 0 6px rgba(0,255,252,0.6);
+}
+.ttt-o {
+    color: #ff3c7f;
+    text-shadow: 0 0 6px rgba(255,60,127,0.6);
+}
+
+/* Mode overlay */
+.ttt-mode-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 45;
+    background: rgba(10, 0, 21, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem;
+}
+.ttt-mode-overlay h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.2rem;
+    color: var(--neon-cyan);
+    margin: 0 0 0.5rem 0;
+}
+.ttt-mode-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 260px;
+    width: 100%;
+}
+.ttt-mode-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid var(--neon-cyan);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--neon-cyan);
+}
+.ttt-mode-btn:hover {
+    background: rgba(0, 255, 255, 0.12);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
