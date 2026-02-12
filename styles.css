@@ -2507,3 +2507,13 @@ body.game-active #gameCanvas {
     background: rgba(0, 255, 255, 0.12);
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
 }
+.ttt-back-btn {
+    border-color: #666;
+    color: #888;
+    margin-top: 0.5rem;
+}
+.ttt-back-btn:hover {
+    background: #444;
+    color: #fff;
+    box-shadow: none;
+}

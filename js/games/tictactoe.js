@@ -1,4 +1,11 @@
 // === TIC TAC TOE ===
+function randomTTTCode() {
+    const chars = 'BCEFGHJKLMNPQRTVXYZ23456789';
+    let s = '';
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return 'TTT' + s;
+}
+
 function initTicTacToe() {
     currentGameTitle.textContent = 'TIC TAC TOE';
     gameControls.innerHTML = 'Click a cell to place your mark. Get 3 in a row to win!';
@@ -9,20 +16,24 @@ function initTicTacToe() {
 
     const CELL = SIZE / 3;
     const LINE_W = 6;
-    const MARK_PAD = 28;          // padding inside each cell for X/O marks
+    const MARK_PAD = 28;
     const NEON_CYAN = '#0ff0fc';
     const NEON_PINK = '#ff3c7f';
     const NEON_GOLD = '#ffd700';
     const DIM = 'rgba(255,255,255,0.12)';
     const BG = '#0d0021';
 
-    let board;       // 3x3 array: null, 'X', 'O'
-    let turn;        // 'X' or 'O'  (player is always X)
-    let winner;      // null, 'X', 'O', 'draw'
-    let winLine;     // [[r,c],[r,c],[r,c]] or null
-    let vsAI;        // true = vs AI, false = 2-player local
-    let aiThinking;  // true while AI is "thinking"
-    let gameActive;  // false until a mode is chosen
+    let board;
+    let turn;
+    let winner;
+    let winLine;
+    let vsAI;
+    let isOnline = false;
+    let myMark = null;      // 'X' or 'O' — which mark does this player control
+    let conn = null;         // PeerJS DataConnection
+    let peer = null;         // PeerJS Peer instance
+    let aiThinking;
+    let gameActive;
 
     // ── Mode selection overlay ──
     const modeOverlay = document.createElement('div');
@@ -34,27 +45,200 @@ function initTicTacToe() {
     btnAI.type = 'button';
     btnAI.className = 'ttt-mode-btn';
     btnAI.textContent = 'VS AI';
-    btnAI.addEventListener('click', () => { modeOverlay.remove(); startTTT(true); });
+    btnAI.addEventListener('click', () => { modeOverlay.remove(); startTTTAI(); });
 
-    const btn2P = document.createElement('button');
-    btn2P.type = 'button';
-    btn2P.className = 'ttt-mode-btn';
-    btn2P.textContent = '2 Players';
-    btn2P.addEventListener('click', () => { modeOverlay.remove(); startTTT(false); });
+    const btnOnline = document.createElement('button');
+    btnOnline.type = 'button';
+    btnOnline.className = 'ttt-mode-btn';
+    btnOnline.textContent = 'Online Play';
+    btnOnline.addEventListener('click', () => { modeOverlay.remove(); showOnlineLobby(); });
 
     modeBtns.appendChild(btnAI);
-    modeBtns.appendChild(btn2P);
+    modeBtns.appendChild(btnOnline);
     gameContainer.appendChild(modeOverlay);
 
     // Draw an empty board while overlay is visible
     drawBoard();
 
-    // ── Start game ──
-    function startTTT(ai) {
-        vsAI = ai;
+    // ── Start AI game ──
+    function startTTTAI() {
+        vsAI = true;
+        isOnline = false;
+        myMark = 'X';
         resetBoard();
         gameActive = true;
         startArcadeMusic('tictactoe');
+    }
+
+    // ── Start Online game ──
+    function startTTTOnline(connection, isHost, peerInstance) {
+        conn = connection;
+        peer = peerInstance;
+        vsAI = false;
+        isOnline = true;
+        myMark = isHost ? 'X' : 'O';
+        resetBoard();
+        gameActive = true;
+        startArcadeMusic('tictactoe');
+
+        conn.on('data', (data) => {
+            if (data.type === 'move' && data.r != null && data.c != null) {
+                // Remote player placed a mark
+                const remoteMark = myMark === 'X' ? 'O' : 'X';
+                if (board[data.r][data.c] || turn !== remoteMark || winner) return;
+                board[data.r][data.c] = remoteMark;
+                playSound(remoteMark === 'X' ? 440 : 330, 0.08);
+                const result = checkWin(board);
+                if (result) {
+                    winner = result.winner;
+                    winLine = result.line;
+                    handleOnlineGameEnd();
+                } else {
+                    turn = turn === 'X' ? 'O' : 'X';
+                }
+                drawBoard();
+            }
+            if (data.type === 'restart') {
+                resetBoard();
+                drawBoard();
+            }
+        });
+        conn.on('close', () => {
+            if (!winner) { winner = 'dc'; drawBoard(); }
+            playGameOverJingle();
+        });
+        conn.on('error', () => {
+            if (!winner) { winner = 'dc'; drawBoard(); }
+            playGameOverJingle();
+        });
+    }
+
+    function handleOnlineGameEnd() {
+        if (winner === myMark) playSound(800, 0.3);
+        else if (winner === 'draw') playSound(440, 0.3);
+        else playGameOverJingle();
+    }
+
+    // ── Online lobby (Create / Join) ──
+    function showOnlineLobby() {
+        const hasPeer = typeof Peer !== 'undefined';
+        const overlay = document.createElement('div');
+        overlay.className = 'ttt-mode-overlay';
+        overlay.innerHTML = '<h3>Play vs someone online</h3><div class="ttt-mode-btns"></div>';
+        const btns = overlay.querySelector('.ttt-mode-btns');
+
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'ttt-mode-btn ttt-back-btn';
+        backBtn.textContent = '\u2190 Back';
+        backBtn.addEventListener('click', () => {
+            overlay.remove();
+            gameContainer.appendChild(modeOverlay);
+        });
+
+        if (!hasPeer) {
+            overlay.querySelector('h3').textContent = 'Online play requires PeerJS (check connection).';
+            btns.appendChild(backBtn);
+            gameContainer.appendChild(overlay);
+            return;
+        }
+
+        // Create Game
+        const createBtn = document.createElement('button');
+        createBtn.type = 'button';
+        createBtn.className = 'ttt-mode-btn';
+        createBtn.textContent = 'Create Game';
+        createBtn.addEventListener('click', () => {
+            const roomCode = randomTTTCode();
+            const p = new Peer(roomCode, { debug: 0 });
+            const codeEl = document.createElement('div');
+            codeEl.className = 'pong-room-code';
+            codeEl.textContent = roomCode;
+            const waitEl = document.createElement('p');
+            waitEl.className = 'pong-waiting-msg';
+            waitEl.textContent = 'Share this code. When someone joins, the game starts.';
+            overlay.querySelector('h3').textContent = 'Your game code';
+            btns.innerHTML = '';
+            overlay.insertBefore(codeEl, btns);
+            overlay.insertBefore(waitEl, btns);
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'ttt-mode-btn ttt-back-btn';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                try { p.destroy(); } catch (e) {}
+                gameContainer.appendChild(modeOverlay);
+            });
+            btns.appendChild(cancelBtn);
+            p.on('open', () => {});
+            p.on('connection', (c) => {
+                c.on('open', () => {
+                    overlay.remove();
+                    startTTTOnline(c, true, p);
+                });
+            });
+            p.on('error', (err) => {
+                waitEl.textContent = 'Error: ' + (err.message || 'Could not create game. Try again.');
+            });
+            cleanupFunctions.push(() => { try { p.destroy(); } catch (e) {} });
+        });
+
+        // Join Game
+        const joinBtn = document.createElement('button');
+        joinBtn.type = 'button';
+        joinBtn.className = 'ttt-mode-btn';
+        joinBtn.textContent = 'Join Game';
+        joinBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'pong-join-input';
+            input.placeholder = 'e.g. TTTAB3XY9';
+            input.maxLength = 9;
+            input.autocomplete = 'off';
+            input.setAttribute('inputmode', 'text');
+            input.setAttribute('autocapitalize', 'characters');
+            input.setAttribute('spellcheck', 'false');
+            const goBtn = document.createElement('button');
+            goBtn.type = 'button';
+            goBtn.className = 'ttt-mode-btn';
+            goBtn.textContent = 'Connect';
+            overlay.querySelector('h3').textContent = 'Enter game code';
+            btns.innerHTML = '';
+            btns.appendChild(input);
+            btns.appendChild(goBtn);
+            btns.appendChild(backBtn);
+            input.focus();
+            goBtn.addEventListener('click', () => {
+                const code = String(input.value).trim().toUpperCase();
+                if (!code || code.length < 4) return;
+                const p = new Peer(undefined, { debug: 0 });
+                p.on('open', () => {
+                    const c = p.connect(code);
+                    if (!c) {
+                        overlay.querySelector('h3').textContent = 'Could not connect. Check code.';
+                        return;
+                    }
+                    c.on('open', () => {
+                        overlay.remove();
+                        startTTTOnline(c, false, p);
+                    });
+                    c.on('error', () => {
+                        overlay.querySelector('h3').textContent = 'Connection failed. Check code.';
+                    });
+                });
+                p.on('error', (err) => {
+                    overlay.querySelector('h3').textContent = 'Error: ' + (err.message || 'Try again.');
+                });
+                cleanupFunctions.push(() => { try { p.destroy(); } catch (e) {} });
+            });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') goBtn.click(); });
+        });
+
+        btns.appendChild(createBtn);
+        btns.appendChild(joinBtn);
+        btns.appendChild(backBtn);
+        gameContainer.appendChild(overlay);
     }
 
     function resetBoard() {
@@ -67,14 +251,6 @@ function initTicTacToe() {
     }
 
     // ── AI (minimax with alpha-beta pruning) ──
-    function getAvailableMoves() {
-        const moves = [];
-        for (let r = 0; r < 3; r++)
-            for (let c = 0; c < 3; c++)
-                if (!board[r][c]) moves.push([r, c]);
-        return moves;
-    }
-
     function checkWin(b) {
         const lines = [
             [[0,0],[0,1],[0,2]], [[1,0],[1,1],[1,2]], [[2,0],[2,1],[2,2]],
@@ -87,7 +263,6 @@ function initTicTacToe() {
                 return { winner: b[a[0]][a[1]], line };
             }
         }
-        // Check draw
         let full = true;
         for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) if (!b[r][c]) full = false;
         if (full) return { winner: 'draw', line: null };
@@ -97,9 +272,9 @@ function initTicTacToe() {
     function minimax(b, depth, isMaximizing, alpha, beta) {
         const result = checkWin(b);
         if (result) {
-            if (result.winner === 'O') return 10 - depth;     // AI wins
-            if (result.winner === 'X') return depth - 10;     // Player wins
-            return 0;                                          // Draw
+            if (result.winner === 'O') return 10 - depth;
+            if (result.winner === 'X') return depth - 10;
+            return 0;
         }
         if (isMaximizing) {
             let best = -Infinity;
@@ -153,7 +328,6 @@ function initTicTacToe() {
     function doAIMove() {
         if (winner || turn !== 'O' || !vsAI) return;
         aiThinking = true;
-        // Small delay so it feels natural
         setTimeout(() => {
             if (winner || turn !== 'O') { aiThinking = false; return; }
             const move = aiBestMove();
@@ -179,18 +353,32 @@ function initTicTacToe() {
     function handleClick(r, c) {
         if (!gameActive || winner || aiThinking) return;
         if (board[r][c]) return;
+
+        // In AI mode, player is always X
         if (vsAI && turn !== 'X') return;
+
+        // In online mode, only allow placing your own mark on your turn
+        if (isOnline && turn !== myMark) return;
 
         board[r][c] = turn;
         playSound(turn === 'X' ? 440 : 330, 0.08);
+
+        // Send the move to the remote player
+        if (isOnline && conn) {
+            try { conn.send({ type: 'move', r, c }); } catch (e) {}
+        }
 
         const result = checkWin(board);
         if (result) {
             winner = result.winner;
             winLine = result.line;
-            if (winner === 'X' && vsAI) playSound(800, 0.3);
-            else if (winner === 'draw') playSound(440, 0.3);
-            else if (winner !== 'draw' && !vsAI) playSound(800, 0.3);
+            if (isOnline) {
+                handleOnlineGameEnd();
+            } else {
+                // AI mode
+                if (winner === 'X') playSound(800, 0.3);
+                else if (winner === 'draw') playSound(440, 0.3);
+            }
             drawBoard();
             return;
         }
@@ -228,8 +416,7 @@ function initTicTacToe() {
     handleKeyDown = (e) => {
         if (winner && e.key === ' ') {
             e.preventDefault();
-            resetBoard();
-            if (vsAI) drawBoard();
+            doRestart();
         }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -237,13 +424,20 @@ function initTicTacToe() {
     function onRestartTap(e) {
         if (!winner) return;
         e.preventDefault();
-        resetBoard();
-        drawBoard();
+        doRestart();
     }
     canvas.addEventListener('touchstart', onRestartTap, { passive: false });
     cleanupFunctions.push(() => {
         canvas.removeEventListener('touchstart', onRestartTap);
     });
+
+    function doRestart() {
+        if (isOnline && conn) {
+            try { conn.send({ type: 'restart' }); } catch (e) {}
+        }
+        resetBoard();
+        drawBoard();
+    }
 
     // ── Drawing ──
     function drawBoard() {
@@ -255,12 +449,10 @@ function initTicTacToe() {
         ctx.lineWidth = LINE_W;
         ctx.lineCap = 'round';
         for (let i = 1; i < 3; i++) {
-            // Vertical
             ctx.beginPath();
             ctx.moveTo(i * CELL, 12);
             ctx.lineTo(i * CELL, SIZE - 12);
             ctx.stroke();
-            // Horizontal
             ctx.beginPath();
             ctx.moveTo(12, i * CELL);
             ctx.lineTo(SIZE - 12, i * CELL);
@@ -278,11 +470,8 @@ function initTicTacToe() {
                 const isWinCell = winLine && winLine.some(([wr, wc]) => wr === r && wc === c);
                 const alpha = winner && !isWinCell ? 0.3 : 1;
 
-                if (mark === 'X') {
-                    drawX(cx, cy, alpha);
-                } else {
-                    drawO(cx, cy, alpha);
-                }
+                if (mark === 'X') drawX(cx, cy, alpha);
+                else drawO(cx, cy, alpha);
             }
         }
 
@@ -320,24 +509,40 @@ function initTicTacToe() {
             ctx.fillStyle = 'rgba(0,0,0,0.65)';
             ctx.fillRect(0, SIZE / 2 - 46, SIZE, 92);
             ctx.font = '26px "Press Start 2P"';
-            if (winner === 'draw') {
+            if (winner === 'dc') {
+                ctx.fillStyle = '#ff4444';
+                ctx.fillText('DISCONNECTED', SIZE / 2, SIZE / 2 - 12);
+            } else if (winner === 'draw') {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillText("IT'S A DRAW!", SIZE / 2, SIZE / 2 - 12);
             } else {
                 ctx.fillStyle = winner === 'X' ? NEON_CYAN : NEON_PINK;
-                const label = vsAI ? (winner === 'X' ? 'YOU WIN!' : 'AI WINS!') : winner + ' WINS!';
+                let label;
+                if (vsAI) {
+                    label = winner === 'X' ? 'YOU WIN!' : 'AI WINS!';
+                } else if (isOnline) {
+                    label = winner === myMark ? 'YOU WIN!' : 'OPPONENT WINS!';
+                } else {
+                    label = winner + ' WINS!';
+                }
                 ctx.fillText(label, SIZE / 2, SIZE / 2 - 12);
             }
             ctx.font = '11px "Press Start 2P"';
             ctx.fillStyle = '#aaaaaa';
             ctx.fillText('SPACE / TAP TO REPLAY', SIZE / 2, SIZE / 2 + 22);
         } else if (gameActive) {
-            // Turn indicator — small text at top
             ctx.font = '11px "Press Start 2P"';
             ctx.fillStyle = turn === 'X' ? NEON_CYAN : NEON_PINK;
-            const turnLabel = vsAI
-                ? (turn === 'X' ? 'YOUR TURN (X)' : 'AI THINKING...')
-                : (turn + "'S TURN");
+            let turnLabel;
+            if (vsAI) {
+                turnLabel = turn === 'X' ? 'YOUR TURN (X)' : 'AI THINKING...';
+            } else if (isOnline) {
+                turnLabel = turn === myMark
+                    ? 'YOUR TURN (' + myMark + ')'
+                    : 'OPPONENT\'S TURN';
+            } else {
+                turnLabel = turn + "'S TURN";
+            }
             ctx.fillText(turnLabel, SIZE / 2, 18);
         }
     }
@@ -345,9 +550,6 @@ function initTicTacToe() {
     function drawX(cx, cy, alpha) {
         const half = CELL / 2 - MARK_PAD;
         ctx.save();
-        ctx.globalAlpha = alpha;
-
-        // Glow layer
         ctx.globalAlpha = alpha * 0.2;
         ctx.strokeStyle = NEON_CYAN;
         ctx.lineWidth = 14;
@@ -358,10 +560,7 @@ function initTicTacToe() {
         ctx.moveTo(cx + half, cy - half);
         ctx.lineTo(cx - half, cy + half);
         ctx.stroke();
-
-        // Core line
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = NEON_CYAN;
         ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.moveTo(cx - half, cy - half);
@@ -369,16 +568,12 @@ function initTicTacToe() {
         ctx.moveTo(cx + half, cy - half);
         ctx.lineTo(cx - half, cy + half);
         ctx.stroke();
-
         ctx.restore();
     }
 
     function drawO(cx, cy, alpha) {
         const radius = CELL / 2 - MARK_PAD;
         ctx.save();
-        ctx.globalAlpha = alpha;
-
-        // Glow layer
         ctx.globalAlpha = alpha * 0.2;
         ctx.strokeStyle = NEON_PINK;
         ctx.lineWidth = 14;
@@ -386,15 +581,11 @@ function initTicTacToe() {
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
-
-        // Core line
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = NEON_PINK;
         ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
-
         ctx.restore();
     }
 
@@ -402,5 +593,6 @@ function initTicTacToe() {
     cleanupFunctions.push(() => {
         modeOverlay.remove();
         document.removeEventListener('keydown', handleKeyDown);
+        if (peer) { try { peer.destroy(); } catch (e) {} }
     });
 }
