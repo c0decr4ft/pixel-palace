@@ -455,21 +455,23 @@ function playGameOverJingle() {
 
 // === SECURE ROOM CODES & HANDSHAKE ===
 // Cryptographically random room code — 12 chars from a safe alphabet
-function generateRoomCode(prefix) {
+// Generate a short secure game code: 4-char room ID + 4-char secret = 8 chars total
+// Format shown to user: "ABCD1234" — first 4 are the PeerJS room, last 4 are the secret
+function generateGameCode() {
     const ALPHABET = 'BCEFGHJKLMNPQRTVXYZ23456789';
-    const LENGTH = 6;
-    const arr = new Uint8Array(LENGTH);
+    const arr = new Uint8Array(8);
     crypto.getRandomValues(arr);
     let code = '';
-    for (let i = 0; i < LENGTH; i++) code += ALPHABET[arr[i] % ALPHABET.length];
-    return (prefix || '') + code;
+    for (let i = 0; i < 8; i++) code += ALPHABET[arr[i] % ALPHABET.length];
+    // First 4 = peerId, last 4 = secret
+    return { full: code, peerId: code.slice(0, 4), secret: code.slice(4) };
 }
 
-// Generate a handshake secret (sent inside PeerJS metadata and verified on connect)
-function generateSecret() {
-    const arr = new Uint8Array(32);
-    crypto.getRandomValues(arr);
-    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+// Parse a game code entered by a joiner
+function parseGameCode(input) {
+    const clean = String(input).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (clean.length < 8) return null;
+    return { peerId: clean.slice(0, 4), secret: clean.slice(4, 8) };
 }
 
 // Host: wrap peer.on('connection') with secret verification

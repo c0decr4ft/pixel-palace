@@ -148,13 +148,11 @@ function initTicTacToe() {
         createBtn.className = 'ttt-mode-btn';
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
-            const roomCode = generateRoomCode('X');
-            const secret = generateSecret().slice(0, 4);
-            const fullCode = roomCode + '-' + secret;
-            const p = new Peer(roomCode, { debug: 0 });
+            const gc = generateGameCode();
+            const p = new Peer(gc.peerId, { debug: 0 });
             const codeEl = document.createElement('div');
             codeEl.className = 'pong-room-code';
-            codeEl.textContent = fullCode;
+            codeEl.textContent = gc.full;
             const waitEl = document.createElement('p');
             waitEl.className = 'pong-waiting-msg';
             waitEl.textContent = 'Share this code. When someone joins, the game starts.';
@@ -173,7 +171,7 @@ function initTicTacToe() {
             });
             btns.appendChild(cancelBtn);
             p.on('open', () => {});
-            hostVerifyConnection(p, secret, (c) => {
+            hostVerifyConnection(p, gc.secret, (c) => {
                 overlay.remove();
                 startTTTOnline(c, true, p);
             }, () => {
@@ -194,8 +192,8 @@ function initTicTacToe() {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'pong-join-input';
-            input.placeholder = 'Paste full code';
-            input.maxLength = 30;
+            input.placeholder = 'e.g. ABCD1234';
+            input.maxLength = 8;
             input.autocomplete = 'off';
             input.setAttribute('inputmode', 'text');
             input.setAttribute('autocapitalize', 'characters');
@@ -211,11 +209,10 @@ function initTicTacToe() {
             btns.appendChild(backBtn);
             input.focus();
             goBtn.addEventListener('click', () => {
-                const raw = String(input.value).trim().toUpperCase();
-                const dashIdx = raw.indexOf('-');
-                const peerId = dashIdx > 0 ? raw.slice(0, dashIdx) : raw;
-                const secret = dashIdx > 0 ? raw.slice(dashIdx + 1) : '';
-                if (!peerId || peerId.length < 4) return;
+                const parsed = parseGameCode(input.value);
+                if (!parsed) return;
+                const peerId = parsed.peerId;
+                const secret = parsed.secret;
                 const p = new Peer(undefined, { debug: 0 });
                 p.on('open', () => {
                     const c = p.connect(peerId);

@@ -227,13 +227,11 @@ function initTron() {
         createBtn.className = 'pong-online-btn';
         createBtn.textContent = 'Create Game';
         createBtn.addEventListener('click', () => {
-            const roomCode = generateRoomCode('T');
-            const secret = generateSecret().slice(0, 4);
-            const fullCode = roomCode + '-' + secret;
-            const peer = new Peer(roomCode, { debug: 0 });
+            const gc = generateGameCode();
+            const peer = new Peer(gc.peerId, { debug: 0 });
             const codeEl = document.createElement('div');
             codeEl.className = 'pong-room-code';
-            codeEl.textContent = fullCode;
+            codeEl.textContent = gc.full;
             const waitEl = document.createElement('p');
             waitEl.className = 'pong-waiting-msg';
             waitEl.textContent = 'Share this code. When someone joins, the game starts.';
@@ -248,7 +246,7 @@ function initTron() {
             cancelBtn.addEventListener('click', () => { overlay.remove(); try { peer.destroy(); } catch(e){} gameContainer.appendChild(modeOverlay); });
             btns.appendChild(cancelBtn);
             peer.on('open', () => {});
-            hostVerifyConnection(peer, secret, (conn) => {
+            hostVerifyConnection(peer, gc.secret, (conn) => {
                 overlay.remove(); startTronOnline(conn, true, peer);
             }, () => {
                 waitEl.textContent = 'Unauthorized connection rejected.';
@@ -264,8 +262,8 @@ function initTron() {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'pong-join-input';
-            input.placeholder = 'Paste full code';
-            input.maxLength = 30;
+            input.placeholder = 'e.g. ABCD1234';
+            input.maxLength = 8;
             input.autocomplete = 'off';
             input.setAttribute('inputmode', 'text');
             input.setAttribute('autocapitalize', 'characters');
@@ -281,11 +279,10 @@ function initTron() {
             btns.appendChild(backBtn);
             input.focus();
             goBtn.addEventListener('click', () => {
-                const raw = String(input.value).trim().toUpperCase();
-                const dashIdx = raw.indexOf('-');
-                const peerId = dashIdx > 0 ? raw.slice(0, dashIdx) : raw;
-                const secret = dashIdx > 0 ? raw.slice(dashIdx + 1) : '';
-                if (!peerId || peerId.length < 4) return;
+                const parsed = parseGameCode(input.value);
+                if (!parsed) return;
+                const peerId = parsed.peerId;
+                const secret = parsed.secret;
                 const peer = new Peer(undefined, { debug: 0 });
                 peer.on('open', () => {
                     const conn = peer.connect(peerId);
