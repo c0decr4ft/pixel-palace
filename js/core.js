@@ -662,6 +662,7 @@ const GAME_DISPLAY_NAMES = {
     memory: 'MEMORY',
     '2048': '2048',
     tictactoe: 'TIC TAC TOE',
+    triangles: 'DOTS & TRIANGLES',
 };
 
 // === GAME INSTRUCTIONS ===
@@ -703,6 +704,10 @@ const GAME_INSTRUCTIONS = {
     tictactoe: {
         desktop: ['Click a cell to place your mark', 'Get 3 in a row to win', 'Play VS AI or online with a friend'],
         mobile:  ['Tap a cell to place your mark', 'Get 3 in a row to win', 'Play VS AI or online with a friend']
+    },
+    triangles: {
+        desktop: ['Click a line between two dots to draw it', 'Close a triangle to claim it and go again', 'Most triangles wins!'],
+        mobile:  ['Tap a line between two dots to draw it', 'Close a triangle to claim it and go again', 'Most triangles wins!']
     }
 };
 
@@ -822,6 +827,7 @@ function _launchGame(gameName) {
         case 'memory': initMemory2(); break;
         case '2048': init2048(); break;
         case 'tictactoe': initTicTacToe(); break;
+        case 'triangles': initTriangles(); break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
             lobby.style.display = 'block';

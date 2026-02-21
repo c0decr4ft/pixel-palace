@@ -2435,6 +2435,18 @@ body.game-active #gameCanvas {
     background: var(--neon-cyan);
 }
 
+/* === DOTS & TRIANGLES === */
+.tri-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, #0d0021 0%, #000 100%);
+}
+.tri-demo {
+    width: 80%;
+    height: auto;
+}
+
 /* === TIC TAC TOE === */
 /* Cabinet preview */
 .ttt-preview {

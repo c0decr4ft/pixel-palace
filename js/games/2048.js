@@ -259,10 +259,13 @@ function init2048() {
             ctx.fillStyle = '#ff00ff';
             ctx.font = '20px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 14);
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 30);
+            ctx.fillStyle = '#00ffff';
+            ctx.font = '12px "Press Start 2P"';
+            ctx.fillText('SCORE: ' + score, canvas.width/2, canvas.height/2 + 4);
             ctx.fillStyle = '#ffff00';
             ctx.font = '10px "Press Start 2P"';
-            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 22);
+            ctx.fillText('Press SPACE to restart', canvas.width/2, canvas.height/2 + 30);
         }
         
         if (won && !gameOver) {
