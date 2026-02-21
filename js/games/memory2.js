@@ -140,8 +140,9 @@ function initMemory2() {
 
     function draw(now) {
         gameLoop = requestAnimationFrame(draw);
-        const dt = (now - lastTime) / 1000;
+        let dt = (now - lastTime) / 1000;
         lastTime = now;
+        if (dt > 0.1) dt = 1/60;
 
         // Background
         ctx.fillStyle = '#050d05';

@@ -124,7 +124,7 @@ function initSnake() {
         swipeTarget.removeEventListener('touchend', onSwipeEnd);
     });
     
-    let lastTime = 0;
+    let lastTime = -1;
     const isTouch = matchMedia('(pointer: coarse)').matches;
     const BASE_SPEED = isTouch ? 380 : 300;   // ms per tick at start
     const MIN_SPEED = isTouch ? 150 : 120;    // fastest possible (ms per tick)
@@ -139,10 +139,9 @@ function initSnake() {
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
         
+        if (lastTime < 0) lastTime = currentTime;
         const gameSpeed = currentSpeed();
         if (currentTime - lastTime < gameSpeed) return;
-        // If we fell way behind (e.g. device rotation, tab switch), skip ahead
-        // instead of fast-forwarding many ticks at once
         if (currentTime - lastTime > gameSpeed * 2) lastTime = currentTime;
         else lastTime += gameSpeed;
         
