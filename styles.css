@@ -2598,3 +2598,147 @@ body.game-active #gameCanvas {
     .gi-list li { font-size: 0.75rem; }
     .gi-countdown { font-size: 1.4rem; }
 }
+
+/* === MOBILE PERFORMANCE === */
+@media (max-width: 768px), (pointer: coarse) {
+    /* Kill the full-screen fixed overlays — biggest mobile perf killers */
+    .scanlines,
+    .noise {
+        display: none !important;
+    }
+
+    /* Disable all cabinet preview and demo animations */
+    .snake-demo,
+    .tetris-demo,
+    .pong-demo,
+    .tron-demo,
+    .breakout-demo::before,
+    .breakout-demo::after,
+    .space-row,
+    .m2-tile.m2-on,
+    .puzzle-demo,
+    .online-demo,
+    .race-demo,
+    .shooter-demo,
+    .tower-demo,
+    .tank-demo,
+    .mine-demo,
+    .connect-demo,
+    .holo-stack-demo,
+    .asteroid-demo,
+    .star,
+    .draw-demo,
+    .zombie-demo,
+    .runner-demo,
+    .word-demo,
+    .crown-demo,
+    .play-btn::after {
+        animation: none !important;
+    }
+
+    /* Disable futuristic rotating conic-gradient scan — very expensive */
+    .futuristic-cabinet::before {
+        animation: none !important;
+        display: none;
+    }
+    .futuristic-preview::before {
+        animation: none !important;
+    }
+
+    /* Disable the rainbow strip animation on every cabinet */
+    .game-cabinet::before {
+        animation: none !important;
+    }
+
+    /* Disable cabinet entrance animations (they re-trigger on scroll) */
+    .game-cabinet {
+        animation: none !important;
+    }
+
+    /* Simplify the title — remove multi-layer text-shadow pulse */
+    .title {
+        animation: none !important;
+        text-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    /* Disable header neon-sign float and subtitle blink */
+    .neon-sign {
+        animation: none !important;
+    }
+    .subtitle {
+        animation: none !important;
+        opacity: 1;
+    }
+
+    /* Disable glitch pseudo-element animations */
+    .glitch::before,
+    .glitch::after {
+        animation: none !important;
+        display: none;
+    }
+
+    /* Simplify header box-shadow */
+    .arcade-header {
+        box-shadow: none;
+    }
+
+    /* Disable cabinet hover effects (no hover on touch) */
+    .game-cabinet:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Disable various tag/pulse animations across cabinet variants */
+    .futuristic-tag,
+    .marquee,
+    .marquee span,
+    .creator-name {
+        animation: none !important;
+    }
+
+    /* Disable the rainbow border animation on draw/special cabinets */
+    .game-cabinet[data-game="holodraw"]::after,
+    .game-cabinet[data-game="ciphercode"]::after {
+        animation: none !important;
+    }
+
+    /* Simplify box-shadows on small screens */
+    .cabinet-screen {
+        box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
+    }
+
+    /* Remove expensive drop-shadow filters from all demo/preview elements */
+    .creator-name,
+    .tank-demo,
+    .mine-demo,
+    .connect-demo,
+    .holo-stack-demo,
+    .asteroid-demo,
+    .draw-demo,
+    .zombie-demo,
+    .runner-demo,
+    .word-demo,
+    .crown-demo {
+        filter: none !important;
+    }
+
+    /* Remove box-shadow glow from cabinet screens */
+    .snake-demo,
+    .tetris-demo,
+    .pong-demo {
+        box-shadow: none;
+    }
+}
+
+/* Also respect users who prefer reduced motion (accessibility + performance) */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+    .scanlines,
+    .noise {
+        display: none !important;
+    }
+}
