@@ -711,8 +711,8 @@ const GAME_INSTRUCTIONS = {
         mobile:  ['Tap a line between two dots to draw it', 'Close a triangle to claim it and go again', 'Most triangles wins!']
     },
     racer: {
-        desktop: ['← → or A/D to steer', 'Dodge traffic — speed increases over time', 'Grab ⚡ pickups for bonus points'],
-        mobile:  ['Touch & drag left/right to steer', 'Dodge traffic — speed increases over time', 'Grab ⚡ pickups for bonus points']
+        desktop: ['← → or A/D to switch lanes', 'Dodge traffic — speed increases over time', 'Grab ⚡ pickups for bonus points'],
+        mobile:  ['Tap left/right side of screen to switch lanes', 'Dodge traffic — speed increases over time', 'Grab ⚡ pickups for bonus points']
     }
 };
 
