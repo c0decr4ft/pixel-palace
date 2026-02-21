@@ -440,6 +440,7 @@ function initTicTacToe() {
     handleKeyDown = (e) => {
         if (winner && !resultShowing && e.key === ' ') {
             e.preventDefault();
+            if (isOnline && myMark !== 'X') return;
             doRestart();
         }
     };
@@ -447,6 +448,7 @@ function initTicTacToe() {
 
     function onRestartTap(e) {
         if (!winner || resultShowing) return;
+        if (isOnline && myMark !== 'X') return;
         e.preventDefault();
         doRestart();
     }
@@ -461,15 +463,16 @@ function initTicTacToe() {
         resultTimer = setTimeout(() => {
             resultTimer = null;
             resultShowing = false;
+            if (isOnline && myMark !== 'X') return;
             doRestart();
         }, 3000);
     }
 
     function doRestart() {
-        if (isOnline && conn) {
-            try { conn.send({ type: 'restart', round: roundNumber + 1 }); } catch (e) {}
-        }
         roundNumber++;
+        if (isOnline && conn) {
+            try { conn.send({ type: 'restart', round: roundNumber }); } catch (e) {}
+        }
         resetBoard();
         drawBoard();
     }
@@ -566,6 +569,8 @@ function initTicTacToe() {
             ctx.fillStyle = '#aaaaaa';
             if (resultShowing) {
                 ctx.fillText('NEXT ROUND STARTING...', SIZE / 2, SIZE / 2 + 22);
+            } else if (isOnline && myMark !== 'X') {
+                ctx.fillText('WAITING FOR HOST...', SIZE / 2, SIZE / 2 + 22);
             } else {
                 ctx.fillText('SPACE / TAP TO REPLAY', SIZE / 2, SIZE / 2 + 22);
             }
