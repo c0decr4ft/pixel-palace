@@ -36,12 +36,12 @@ function initPong() {
     let pongGameActive = false; // only track touches once actual gameplay starts
 
     function onPongTouchStart(e) {
-        if (!pongGameActive || e.touches.length < 1) return;
+        if (!pongGameActive || e.touches.length < 1 || isTouchOnUI(e)) return;
         e.preventDefault();
         updateTouchPaddle(e.touches[0]);
     }
     function onPongTouchMove(e) {
-        if (!pongGameActive || touchPaddleY === null) return;
+        if (!pongGameActive || touchPaddleY === null || isTouchOnUI(e)) return;
         e.preventDefault();
         if (e.touches.length) updateTouchPaddle(e.touches[0]);
     }
@@ -439,6 +439,7 @@ function initPong() {
         let score1 = 0;
         let score2 = 0;
         let remotePaddle = PONG_H / 2 - PADDLE_H / 2;
+        let displayRemotePaddle = remotePaddle; // smoothed version for rendering
         let gameOver = false;
         let winner = '';
         
@@ -458,8 +459,10 @@ function initPong() {
                 if (typeof data.ballSpeedY === 'number') ballSpeedY = data.ballSpeedY;
                 if (typeof data.score1 === 'number') score1 = Math.floor(data.score1);
                 if (typeof data.score2 === 'number') score2 = Math.floor(data.score2);
-                if (typeof data.paddle1Y === 'number') paddle1Y = data.paddle1Y;
-                if (isHost) paddle2Y = remotePaddle;
+                if (typeof data.paddle1Y === 'number') {
+                    if (!isHost) remotePaddle = data.paddle1Y;
+                    else paddle1Y = data.paddle1Y;
+                }
                 if ((data.winner === 'p1' || data.winner === 'p2') && !winner) {
                     gameOver = true;
                     winner = data.winner;
@@ -532,8 +535,12 @@ function initPong() {
                 }
             }
             
+            // Smoothly interpolate the remote paddle toward its target
+            const lerpSpeed = 18; // higher = snappier
+            displayRemotePaddle += (remotePaddle - displayRemotePaddle) * Math.min(1, lerpSpeed * dt);
+
             if (isHost) {
-                paddle2Y = remotePaddle;
+                paddle2Y = displayRemotePaddle;
                 ballAccum += dt;
                 let steps = 0;
                 let sfxWall = false, sfxPaddle = false, sfxScore1 = false, sfxScore2 = false;
@@ -591,8 +598,8 @@ function initPong() {
                     conn.send({ t: 'state', ballX, ballY, ballSpeedX, ballSpeedY, score1, score2, paddle1Y, paddle2Y, winner });
                 }
             } else {
-                /* Joiner: paddle2Y is updated by local input above (lines 467-474).
-                   We just send our position to the host periodically. */
+                // Joiner: smooth the host's paddle (paddle1Y) from network updates
+                paddle1Y = displayRemotePaddle;
                 sendAcc += dt;
                 if (sendAcc >= SEND_INTERVAL) {
                     sendAcc = 0;

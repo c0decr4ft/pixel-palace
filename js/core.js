@@ -73,6 +73,20 @@ function safeStorageGet(key, fallback) {
     }
 }
 
+// Returns true if the touch event originated from a UI element (header buttons, overlays)
+// Game touch handlers should bail out when this returns true so buttons remain tappable
+function isTouchOnUI(e) {
+    const t = e.target;
+    if (!t) return false;
+    if (t.closest('.game-header') || t.closest('.pause-overlay') ||
+        t.closest('.pong-mode-overlay') || t.closest('.pong-online-overlay') ||
+        t.closest('.ttt-mode-overlay') || t.closest('[class*="-mode-overlay"]') ||
+        t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'A') {
+        return true;
+    }
+    return false;
+}
+
 // DOM Elements
 const lobby = document.getElementById('lobby');
 const gameContainer = document.getElementById('gameContainer');

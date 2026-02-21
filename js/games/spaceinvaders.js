@@ -111,7 +111,7 @@ function initSpaceInvaders() {
     const isTouch = matchMedia('(pointer: coarse)').matches;
 
     function onSITouchStart(e) {
-        if (e.touches.length < 1) return;
+        if (e.touches.length < 1 || isTouchOnUI(e)) return;
         e.preventDefault();
         siTouchId = e.touches[0].identifier;
         updateSITouch(e.touches[0]);

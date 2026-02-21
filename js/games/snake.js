@@ -86,7 +86,7 @@ function initSnake() {
     const SWIPE_MIN = 20; // minimum px to count as a swipe
 
     function onSwipeStart(e) {
-        if (e.touches.length !== 1) return;
+        if (e.touches.length !== 1 || isTouchOnUI(e)) return;
         e.preventDefault();
         swipeStartX = e.touches[0].clientX;
         swipeStartY = e.touches[0].clientY;

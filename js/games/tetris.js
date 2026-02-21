@@ -79,7 +79,11 @@ function initTetris() {
             }
         }
         if (linesCleared > 0) {
-            updateScore(score + linesCleared * 100);
+            // Classic scoring: 100/300/500/800 per 1/2/3/4 lines
+            const points = [0, 100, 300, 500, 800];
+            updateScore(score + (points[linesCleared] || linesCleared * 200) * (level + 1));
+            totalLines += linesCleared;
+            level = Math.floor(totalLines / 10);
             playSound(800, 0.1);
         }
     }
@@ -120,7 +124,7 @@ function initTetris() {
     };
     document.addEventListener('keydown', handleKeyDown);
 
-``    /* Swipe + tap touch controls: swipe L/R to move, swipe down to drop, tap to rotate */
+    /* Swipe + tap touch controls: swipe L/R to move, swipe down to drop, tap to rotate */
     let tSwipeStartX = null;
     let tSwipeStartY = null;
     let tSwipeStartTime = 0;
@@ -131,7 +135,7 @@ function initTetris() {
     let tLastMoveX = 0;       // for continuous horizontal swiping
 
     function onTetrisTouchStart(e) {
-        if (e.touches.length !== 1 || gameOver) return;
+        if (e.touches.length !== 1 || gameOver || isTouchOnUI(e)) return;
         e.preventDefault();
         const t = e.touches[0];
         tSwipeStartX = t.clientX;
@@ -186,7 +190,20 @@ function initTetris() {
     spawnPiece();
     
     let lastTime = 0;
-    let dropInterval = 1500;
+    let level = 0;
+    let totalLines = 0;
+
+    // Classic NES Tetris speed curve (ms per drop) — starts moderate, ramps up
+    function getDropInterval() {
+        // Levels 0-9 follow original NES frames-per-gridcell converted to ms
+        const speeds = [800, 717, 633, 550, 467, 383, 300, 217, 133, 100];
+        if (level < speeds.length) return speeds[level];
+        // Level 10-12: 83ms, 13-15: 67ms, 16-18: 50ms, 19+: 33ms
+        if (level <= 12) return 83;
+        if (level <= 15) return 67;
+        if (level <= 18) return 50;
+        return 33;
+    }
     
     function update(currentTime) {
         gameLoop = requestAnimationFrame(update);
@@ -237,6 +254,12 @@ function initTetris() {
             }
         }
         
+        // Level indicator
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.textAlign = 'left';
+        ctx.fillText('LV ' + level, 4, 14);
+
         if (gameOver) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -247,11 +270,13 @@ function initTetris() {
             ctx.fillText('OVER', canvas.width / 2, canvas.height / 2 + 12);
             ctx.fillStyle = '#ffff00';
             ctx.font = '10px "Press Start 2P"';
-            ctx.fillText('SPACE to restart', canvas.width / 2, canvas.height / 2 + 44);
+            ctx.fillText('LV ' + level + '  LINES ' + totalLines, canvas.width / 2, canvas.height / 2 + 36);
+            ctx.fillText('SPACE to restart', canvas.width / 2, canvas.height / 2 + 56);
             return;
         }
         
-        // Drop piece (fixed interval so speed doesn't vary with frame rate)
+        // Drop piece — speed increases with level like classic Tetris
+        const dropInterval = getDropInterval();
         if (currentTime - lastTime >= dropInterval) {
             lastTime += dropInterval;
             if (!collision(0, 1)) {

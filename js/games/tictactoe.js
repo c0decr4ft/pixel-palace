@@ -72,9 +72,14 @@ function initTicTacToe() {
         vsAI = false;
         isOnline = true;
         myMark = isHost ? 'X' : 'O';
+        // Re-assert canvas size in case overlays messed with layout
+        canvas.width = SIZE;
+        canvas.height = SIZE;
         resetBoard();
         gameActive = true;
         startArcadeMusic('tictactoe');
+        // Force a clean redraw after overlay removal settles
+        requestAnimationFrame(() => drawBoard());
 
         conn.on('data', (raw) => {
             const data = sanitizePeerData(raw);
