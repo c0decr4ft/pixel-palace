@@ -2519,3 +2519,82 @@ body.game-active #gameCanvas {
     color: #fff;
     box-shadow: none;
 }
+
+/* === GAME INSTRUCTIONS OVERLAY === */
+.game-instructions-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(8, 0, 18, 0.97);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    animation: giFadeIn 0.3s ease-out;
+}
+@keyframes giFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.gi-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 1.4rem;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    margin: 0;
+    letter-spacing: 0.05em;
+}
+.gi-subtitle {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    color: var(--neon-pink);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin: 0;
+}
+.gi-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    max-width: 440px;
+}
+.gi-list li {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    color: #ddd;
+    line-height: 1.5;
+    padding-left: 1.2em;
+    text-align: left;
+    position: relative;
+}
+.gi-list li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--neon-cyan);
+}
+.gi-countdown {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 1.8rem;
+    color: var(--neon-yellow, #ffd700);
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    min-width: 2ch;
+}
+.gi-skip {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    color: rgba(255, 255, 255, 0.35);
+    margin: 0;
+}
+@media (max-width: 480px) {
+    .gi-title { font-size: 1rem; }
+    .gi-list li { font-size: 0.75rem; }
+    .gi-countdown { font-size: 1.4rem; }
+}

@@ -664,6 +664,121 @@ const GAME_DISPLAY_NAMES = {
     tictactoe: 'TIC TAC TOE',
 };
 
+// === GAME INSTRUCTIONS ===
+const _isTouch = matchMedia('(pointer: coarse)').matches;
+
+const GAME_INSTRUCTIONS = {
+    snake: {
+        desktop: ['Arrow keys or WASD to steer', 'Eat food to grow — avoid walls & yourself', 'Scissors power-up chops your tail'],
+        mobile:  ['Swipe in any direction to steer', 'Eat food to grow — avoid walls & yourself', 'Scissors power-up chops your tail']
+    },
+    tetris: {
+        desktop: ['← → to move | ↑ to rotate | ↓ to drop', 'Complete rows to clear them', 'Speed increases every 10 lines'],
+        mobile:  ['Swipe left/right to move, down to drop', 'Tap to rotate the piece', 'Speed increases every 10 lines']
+    },
+    pong: {
+        desktop: ['W/S or ↑/↓ to move your paddle', 'First to 11 points wins', 'Choose AI or play online vs a friend'],
+        mobile:  ['Touch & drag to move your paddle', 'First to 11 points wins', 'Choose AI or play online vs a friend']
+    },
+    tron: {
+        desktop: ['Arrow keys to turn — don\'t hit walls or trails', 'Hold Shift to speed up', 'Choose AI or play online vs a friend'],
+        mobile:  ['Swipe up/down/left/right to turn', 'Don\'t hit walls or light trails', 'Choose AI or play online vs a friend']
+    },
+    breakout: {
+        desktop: ['← → or mouse to move the paddle', 'Space to launch the ball', 'Break all bricks to advance — ball speeds up each level'],
+        mobile:  ['Touch & drag to move the paddle', 'Tap to launch the ball', 'Break all bricks to advance — ball speeds up each level']
+    },
+    spaceinvaders: {
+        desktop: ['← → to move | Space to shoot', 'Destroy all invaders before they reach the bottom', 'Waves get harder — faster enemies, more bullets'],
+        mobile:  ['Touch left/right side to move', 'Auto-fire while touching', 'Waves get harder — faster enemies, more bullets']
+    },
+    memory: {
+        desktop: ['Click tiles to reveal them', 'Match pairs of symbols to clear the board', 'Try to remember where each symbol is'],
+        mobile:  ['Tap tiles to reveal them', 'Match pairs of symbols to clear the board', 'Try to remember where each symbol is']
+    },
+    '2048': {
+        desktop: ['Arrow keys to slide all tiles', 'Matching numbers merge and double', 'Reach 2048 to win — don\'t fill the board'],
+        mobile:  ['Swipe in any direction to slide tiles', 'Matching numbers merge and double', 'Reach 2048 to win — don\'t fill the board']
+    },
+    tictactoe: {
+        desktop: ['Click a cell to place your mark', 'Get 3 in a row to win', 'Play VS AI or online with a friend'],
+        mobile:  ['Tap a cell to place your mark', 'Get 3 in a row to win', 'Play VS AI or online with a friend']
+    }
+};
+
+const INSTRUCTION_DURATION = 6000; // 6 seconds
+
+function showGameInstructions(gameName, onDone) {
+    const info = GAME_INSTRUCTIONS[gameName];
+    if (!info) { onDone(); return; }
+    const lines = _isTouch ? info.mobile : info.desktop;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'game-instructions-overlay';
+
+    const title = document.createElement('h2');
+    title.className = 'gi-title';
+    title.textContent = GAME_DISPLAY_NAMES[gameName] || gameName.toUpperCase();
+    overlay.appendChild(title);
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'gi-subtitle';
+    subtitle.textContent = _isTouch ? 'TOUCH CONTROLS' : 'KEYBOARD CONTROLS';
+    overlay.appendChild(subtitle);
+
+    const list = document.createElement('ul');
+    list.className = 'gi-list';
+    for (const line of lines) {
+        const li = document.createElement('li');
+        li.textContent = line;
+        list.appendChild(li);
+    }
+    overlay.appendChild(list);
+
+    const countdown = document.createElement('div');
+    countdown.className = 'gi-countdown';
+    overlay.appendChild(countdown);
+
+    const skipHint = document.createElement('p');
+    skipHint.className = 'gi-skip';
+    skipHint.textContent = _isTouch ? 'Tap to skip' : 'Press any key or click to skip';
+    overlay.appendChild(skipHint);
+
+    gameContainer.appendChild(overlay);
+
+    let remaining = Math.ceil(INSTRUCTION_DURATION / 1000);
+    countdown.textContent = remaining;
+    const countInterval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) countdown.textContent = remaining;
+    }, 1000);
+
+    let dismissed = false;
+    function dismiss() {
+        if (dismissed) return;
+        dismissed = true;
+        clearInterval(countInterval);
+        clearTimeout(autoTimer);
+        overlay.remove();
+        onDone();
+    }
+
+    const autoTimer = setTimeout(dismiss, INSTRUCTION_DURATION);
+
+    // Skip on tap/click/keypress
+    overlay.addEventListener('click', dismiss);
+    overlay.addEventListener('touchstart', (e) => { e.preventDefault(); dismiss(); });
+    function onKey(e) { dismiss(); document.removeEventListener('keydown', onKey); }
+    document.addEventListener('keydown', onKey);
+    cleanupFunctions.push(() => {
+        dismissed = true;
+        clearInterval(countInterval);
+        clearTimeout(autoTimer);
+        try { overlay.remove(); } catch(e){}
+        document.removeEventListener('keydown', onKey);
+    });
+}
+
 function startGame(gameName) {
     if (!lobby || !gameContainer || !canvas || !ctx) {
         console.error('PIXEL PALACE: Cannot start game — required elements missing.');
@@ -677,10 +792,6 @@ function startGame(gameName) {
     updateScore(0);
     if (canvas) canvas.oncontextmenu = (e) => e.preventDefault();
     clearTouchControls();
-    if (audioCtx && arcadeMusicEnabled) {
-        if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic(gameName)).catch(() => {});
-        else startArcadeMusic(gameName);
-    }
     if (currentGameTitle) {
         currentGameTitle.textContent = GAME_DISPLAY_NAMES[gameName] || gameName.toUpperCase();
     }
@@ -689,6 +800,18 @@ function startGame(gameName) {
         if (!playArea.contains(canvas)) playArea.insertBefore(canvas, playArea.firstChild);
         if (!playArea.contains(touchControls)) playArea.appendChild(touchControls);
     }
+
+    // Show instructions first, then init the game
+    showGameInstructions(gameName, () => {
+        if (audioCtx && arcadeMusicEnabled) {
+            if (audioCtx.state === 'suspended') audioCtx.resume().then(() => startArcadeMusic(gameName)).catch(() => {});
+            else startArcadeMusic(gameName);
+        }
+        _launchGame(gameName);
+    });
+}
+
+function _launchGame(gameName) {
     switch (gameName) {
         case 'snake': initSnake(); break;
         case 'tetris': initTetris(); break;
