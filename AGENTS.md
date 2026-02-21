@@ -37,6 +37,7 @@ pixel-palace/
 │       ├── frogger.js
 │       ├── tictactoe.js
 │       ├── triangles.js
+│       ├── racer.js
 │       └── pacman.js
 ├── README.md
 ├── AGENTS.md

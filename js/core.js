@@ -663,6 +663,7 @@ const GAME_DISPLAY_NAMES = {
     '2048': '2048',
     tictactoe: 'TIC TAC TOE',
     triangles: 'DOTS & TRIANGLES',
+    racer: 'NEON RACER',
 };
 
 // === GAME INSTRUCTIONS ===
@@ -708,6 +709,10 @@ const GAME_INSTRUCTIONS = {
     triangles: {
         desktop: ['Click a line between two dots to draw it', 'Close a triangle to claim it and go again', 'Most triangles wins!'],
         mobile:  ['Tap a line between two dots to draw it', 'Close a triangle to claim it and go again', 'Most triangles wins!']
+    },
+    racer: {
+        desktop: ['← → or A/D to steer', 'Dodge traffic — speed increases over time', 'Grab ⚡ pickups for bonus points'],
+        mobile:  ['Touch & drag left/right to steer', 'Dodge traffic — speed increases over time', 'Grab ⚡ pickups for bonus points']
     }
 };
 
@@ -828,6 +833,7 @@ function _launchGame(gameName) {
         case '2048': init2048(); break;
         case 'tictactoe': initTicTacToe(); break;
         case 'triangles': initTriangles(); break;
+        case 'racer': initRacer(); break;
         default:
             console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
             lobby.style.display = 'block';

@@ -2447,6 +2447,51 @@ body.game-active #gameCanvas {
     height: auto;
 }
 
+/* === NEON RACER === */
+.racer-preview {
+    background: #0a0018;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.racer-road {
+    width: 70%;
+    height: 90%;
+    background: #111125;
+    border-left: 3px solid #ff00ff;
+    border-right: 3px solid #ff00ff;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: stretch;
+}
+.racer-lane-line {
+    width: 2px;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.15) 0px,
+        rgba(255,255,255,0.15) 12px,
+        transparent 12px,
+        transparent 24px
+    );
+}
+.racer-car {
+    position: absolute;
+    font-size: 18px;
+    line-height: 1;
+}
+.racer-player {
+    color: #0ff0fc;
+    bottom: 12%;
+    left: 55%;
+}
+.racer-traffic {
+    color: #ff3c7f;
+    top: 18%;
+    left: 22%;
+}
+
 /* === TIC TAC TOE === */
 /* Cabinet preview */
 .ttt-preview {
@@ -2619,50 +2664,17 @@ body.game-active #gameCanvas {
         display: none !important;
     }
 
-    /* Disable all cabinet preview and demo animations */
-    .snake-demo,
-    .tetris-demo,
-    .pong-demo,
-    .tron-demo,
-    .breakout-demo::before,
-    .breakout-demo::after,
-    .space-row,
-    .m2-tile.m2-on,
-    .puzzle-demo,
-    .online-demo,
-    .race-demo,
-    .shooter-demo,
-    .tower-demo,
-    .tank-demo,
-    .mine-demo,
-    .connect-demo,
-    .holo-stack-demo,
-    .asteroid-demo,
-    .star,
-    .draw-demo,
-    .zombie-demo,
-    .runner-demo,
-    .word-demo,
-    .crown-demo,
-    .play-btn::after {
-        animation: none !important;
-    }
-
-    /* Disable futuristic rotating conic-gradient scan — very expensive */
+    /* Disable the expensive futuristic rotating conic-gradient scan */
     .futuristic-cabinet::before {
-        animation: none !important;
-        display: none;
-    }
-    .futuristic-preview::before {
-        animation: none !important;
+        display: none !important;
     }
 
-    /* Disable the rainbow strip animation on every cabinet */
+    /* Disable the rainbow strip animation on every cabinet (per-element repaint) */
     .game-cabinet::before {
         animation: none !important;
     }
 
-    /* Disable cabinet entrance animations (they re-trigger on scroll) */
+    /* Disable cabinet entrance stagger animations */
     .game-cabinet {
         animation: none !important;
     }
@@ -2673,20 +2685,10 @@ body.game-active #gameCanvas {
         text-shadow: 0 0 10px var(--neon-cyan);
     }
 
-    /* Disable header neon-sign float and subtitle blink */
-    .neon-sign {
-        animation: none !important;
-    }
-    .subtitle {
-        animation: none !important;
-        opacity: 1;
-    }
-
-    /* Disable glitch pseudo-element animations */
+    /* Disable glitch pseudo-elements (clip-rect repaints) */
     .glitch::before,
     .glitch::after {
-        animation: none !important;
-        display: none;
+        display: none !important;
     }
 
     /* Simplify header box-shadow */
@@ -2700,26 +2702,7 @@ body.game-active #gameCanvas {
         box-shadow: none;
     }
 
-    /* Disable various tag/pulse animations across cabinet variants */
-    .futuristic-tag,
-    .marquee,
-    .marquee span,
-    .creator-name {
-        animation: none !important;
-    }
-
-    /* Disable the rainbow border animation on draw/special cabinets */
-    .game-cabinet[data-game="holodraw"]::after,
-    .game-cabinet[data-game="ciphercode"]::after {
-        animation: none !important;
-    }
-
-    /* Simplify box-shadows on small screens */
-    .cabinet-screen {
-        box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
-    }
-
-    /* Remove expensive drop-shadow filters from all demo/preview elements */
+    /* Remove expensive drop-shadow filters from demo elements */
     .creator-name,
     .tank-demo,
     .mine-demo,
@@ -2734,11 +2717,9 @@ body.game-active #gameCanvas {
         filter: none !important;
     }
 
-    /* Remove box-shadow glow from cabinet screens */
-    .snake-demo,
-    .tetris-demo,
-    .pong-demo {
-        box-shadow: none;
+    /* Simplify cabinet screen inset shadow */
+    .cabinet-screen {
+        box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
     }
 }
 
