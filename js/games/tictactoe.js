@@ -24,11 +24,14 @@ function initTicTacToe() {
     let winLine;
     let vsAI;
     let isOnline = false;
-    let myMark = null;      // 'X' or 'O' — which mark does this player control
-    let conn = null;         // PeerJS DataConnection
-    let peer = null;         // PeerJS Peer instance
+    let myMark = null;
+    let conn = null;
+    let peer = null;
     let aiThinking;
     let gameActive;
+    let roundNumber = 0;         // increments each round — odd rounds start with O
+    let resultTimer = null;      // 3-second delay before auto-restart
+    let resultShowing = false;   // true during the 3-second result display
 
     // ── Mode selection overlay ──
     const modeOverlay = document.createElement('div');
@@ -97,12 +100,16 @@ function initTicTacToe() {
                     winner = result.winner;
                     winLine = result.line;
                     handleOnlineGameEnd();
+                    drawBoard();
+                    scheduleAutoRestart();
                 } else {
                     turn = turn === 'X' ? 'O' : 'X';
+                    drawBoard();
                 }
-                drawBoard();
             }
             if (data.type === 'restart') {
+                if (typeof data.round === 'number') roundNumber = Math.floor(data.round);
+                else roundNumber++;
                 resetBoard();
                 drawBoard();
             }
@@ -251,11 +258,16 @@ function initTicTacToe() {
 
     function resetBoard() {
         board = [[null,null,null],[null,null,null],[null,null,null]];
-        turn = 'X';
+        // Alternate who goes first each round
+        turn = (roundNumber % 2 === 0) ? 'X' : 'O';
         winner = null;
         winLine = null;
         aiThinking = false;
+        resultShowing = false;
+        if (resultTimer) { clearTimeout(resultTimer); resultTimer = null; }
         drawBoard();
+        // If AI goes first this round, kick off its move
+        if (vsAI && turn === 'O') doAIMove();
     }
 
     // ── AI (minimax with alpha-beta pruning) ──
@@ -348,6 +360,10 @@ function initTicTacToe() {
                     winLine = result.line;
                     if (winner === 'O') playGameOverJingle();
                     else if (winner === 'draw') playSound(440, 0.3);
+                    aiThinking = false;
+                    drawBoard();
+                    scheduleAutoRestart();
+                    return;
                 } else {
                     turn = 'X';
                 }
@@ -383,11 +399,11 @@ function initTicTacToe() {
             if (isOnline) {
                 handleOnlineGameEnd();
             } else {
-                // AI mode
                 if (winner === 'X') playSound(800, 0.3);
                 else if (winner === 'draw') playSound(440, 0.3);
             }
             drawBoard();
+            scheduleAutoRestart();
             return;
         }
 
@@ -422,7 +438,7 @@ function initTicTacToe() {
 
     // ── Restart on Space or tap after game over ──
     handleKeyDown = (e) => {
-        if (winner && e.key === ' ') {
+        if (winner && !resultShowing && e.key === ' ') {
             e.preventDefault();
             doRestart();
         }
@@ -430,7 +446,7 @@ function initTicTacToe() {
     document.addEventListener('keydown', handleKeyDown);
 
     function onRestartTap(e) {
-        if (!winner) return;
+        if (!winner || resultShowing) return;
         e.preventDefault();
         doRestart();
     }
@@ -439,10 +455,21 @@ function initTicTacToe() {
         canvas.removeEventListener('touchstart', onRestartTap);
     });
 
+    function scheduleAutoRestart() {
+        resultShowing = true;
+        if (resultTimer) clearTimeout(resultTimer);
+        resultTimer = setTimeout(() => {
+            resultTimer = null;
+            resultShowing = false;
+            doRestart();
+        }, 3000);
+    }
+
     function doRestart() {
         if (isOnline && conn) {
-            try { conn.send({ type: 'restart' }); } catch (e) {}
+            try { conn.send({ type: 'restart', round: roundNumber + 1 }); } catch (e) {}
         }
+        roundNumber++;
         resetBoard();
         drawBoard();
     }
@@ -537,7 +564,11 @@ function initTicTacToe() {
             }
             ctx.font = '11px "Press Start 2P"';
             ctx.fillStyle = '#aaaaaa';
-            ctx.fillText('SPACE / TAP TO REPLAY', SIZE / 2, SIZE / 2 + 22);
+            if (resultShowing) {
+                ctx.fillText('NEXT ROUND STARTING...', SIZE / 2, SIZE / 2 + 22);
+            } else {
+                ctx.fillText('SPACE / TAP TO REPLAY', SIZE / 2, SIZE / 2 + 22);
+            }
         } else if (gameActive) {
             ctx.font = '11px "Press Start 2P"';
             ctx.fillStyle = turn === 'X' ? NEON_CYAN : NEON_PINK;
@@ -601,6 +632,7 @@ function initTicTacToe() {
     cleanupFunctions.push(() => {
         modeOverlay.remove();
         document.removeEventListener('keydown', handleKeyDown);
+        if (resultTimer) { clearTimeout(resultTimer); resultTimer = null; }
         if (peer) { try { peer.destroy(); } catch (e) {} }
     });
 }

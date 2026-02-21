@@ -189,7 +189,7 @@ function initTetris() {
     
     spawnPiece();
     
-    let lastTime = 0;
+    let lastTime = -1;
     let level = 0;
     let totalLines = 0;
 
@@ -277,8 +277,11 @@ function initTetris() {
         
         // Drop piece — speed increases with level like classic Tetris
         const dropInterval = getDropInterval();
+        if (lastTime < 0) lastTime = currentTime;
         if (currentTime - lastTime >= dropInterval) {
-            lastTime += dropInterval;
+            // Clamp so we never fast-forward more than one extra tick
+            if (currentTime - lastTime > dropInterval * 2) lastTime = currentTime;
+            else lastTime += dropInterval;
             if (!collision(0, 1)) {
                 pieceY++;
             } else {
