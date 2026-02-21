@@ -822,27 +822,37 @@ function startGame(gameName) {
 }
 
 function _launchGame(gameName) {
-    switch (gameName) {
-        case 'snake': initSnake(); break;
-        case 'tetris': initTetris(); break;
-        case 'pong': initPong(); break;
-        case 'tron': initTron(); break;
-        case 'breakout': initBreakout(); break;
-        case 'spaceinvaders': initSpaceInvaders(); break;
-        case 'memory': initMemory2(); break;
-        case '2048': init2048(); break;
-        case 'tictactoe': initTicTacToe(); break;
-        case 'triangles': initTriangles(); break;
-        case 'racer': initRacer(); break;
-        default:
-            console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
-            lobby.style.display = 'block';
-            gameContainer.classList.remove('active');
-            stopArcadeMusic();
-            return;
+    const _inits = {
+        snake: initSnake, tetris: initTetris, pong: initPong, tron: initTron,
+        breakout: initBreakout, spaceinvaders: initSpaceInvaders,
+        memory: initMemory2, '2048': init2048, tictactoe: initTicTacToe,
+        triangles: initTriangles, racer: initRacer
+    };
+    const fn = _inits[gameName];
+    if (!fn) {
+        console.warn('PIXEL PALACE: Unknown game "' + gameName + '".');
+        lobby.style.display = 'block';
+        gameContainer.classList.remove('active');
+        stopArcadeMusic();
+        return;
     }
-    /* Lock CSS aspect-ratio to the canvas buffer so the border
-       always matches the gameplay area on every screen orientation. */
+    try {
+        fn();
+    } catch (err) {
+        console.error('PIXEL PALACE: Error launching ' + gameName, err);
+        if (ctx && canvas) {
+            ctx.fillStyle = '#0a0018';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ff0044';
+            ctx.font = '14px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('LAUNCH ERROR', canvas.width / 2, canvas.height / 2 - 10);
+            ctx.fillStyle = '#fff';
+            ctx.font = '9px monospace';
+            ctx.fillText(String(err.message).slice(0, 40), canvas.width / 2, canvas.height / 2 + 14);
+        }
+        return;
+    }
     canvas.style.aspectRatio = canvas.width + ' / ' + canvas.height;
 }
 

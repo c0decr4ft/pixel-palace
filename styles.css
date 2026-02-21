@@ -2674,14 +2674,14 @@ body.game-active #gameCanvas {
         animation: none !important;
     }
 
-    /* Disable cabinet entrance stagger animations */
+    /* Disable cabinet entrance stagger animation (by name so child anims survive) */
     .game-cabinet {
-        animation: none !important;
+        animation-name: none !important;
     }
 
     /* Simplify the title — remove multi-layer text-shadow pulse */
     .title {
-        animation: none !important;
+        animation-name: none !important;
         text-shadow: 0 0 10px var(--neon-cyan);
     }
 
@@ -2722,7 +2722,7 @@ body.game-active #gameCanvas {
         box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
     }
 
-    /* Force-enable preview demo animations and strip expensive box-shadow */
+    /* Strip heavy neon glow box-shadows from preview demos but keep animations */
     .snake-demo,
     .tetris-demo,
     .pong-demo,
@@ -2735,7 +2735,6 @@ body.game-active #gameCanvas {
     .online-demo,
     .race-demo,
     .racer-car {
-        animation-play-state: running !important;
         box-shadow: none !important;
     }
 }

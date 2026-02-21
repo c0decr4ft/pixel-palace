@@ -176,8 +176,29 @@ const puppeteer = require('puppeteer');
         await page.screenshot({ path: 'neon-racer-test-screenshot.png' });
         console.log('   ✓ Screenshot saved to neon-racer-test-screenshot.png\n');
         
+        // Check required globals before calling initRacer
+        console.log('14. Checking required global variables...');
+        const globalsCheck = await page.evaluate(() => {
+            return {
+                currentGameTitle: typeof window.currentGameTitle !== 'undefined' ? (window.currentGameTitle ? 'exists' : 'null') : 'undefined',
+                gameControls: typeof window.gameControls !== 'undefined' ? (window.gameControls ? 'exists' : 'null') : 'undefined',
+                canvas: typeof window.canvas !== 'undefined' ? (window.canvas ? 'exists' : 'null') : 'undefined',
+                ctx: typeof window.ctx !== 'undefined' ? (window.ctx ? 'exists' : 'null') : 'undefined',
+                updateScore: typeof window.updateScore === 'function',
+                playSound: typeof window.playSound === 'function',
+                playGameOverJingle: typeof window.playGameOverJingle === 'function',
+                gameContainer: typeof window.gameContainer !== 'undefined' ? (window.gameContainer ? 'exists' : 'null') : 'undefined',
+                cleanupFunctions: typeof window.cleanupFunctions !== 'undefined',
+                gameLoop: typeof window.gameLoop !== 'undefined'
+            };
+        });
+        console.log('   Global variables status:');
+        Object.entries(globalsCheck).forEach(([key, value]) => {
+            console.log(`     - ${key}: ${value}`);
+        });
+        
         // Try to manually trigger the game if it hasn't started
-        console.log('14. Attempting to manually call initRacer...');
+        console.log('\n15. Attempting to manually call initRacer...');
         const manualResult = await page.evaluate(() => {
             try {
                 if (typeof initRacer === 'function') {
@@ -187,16 +208,19 @@ const puppeteer = require('puppeteer');
                     return { success: false, error: 'initRacer is not a function' };
                 }
             } catch (err) {
-                return { success: false, error: err.message };
+                return { success: false, error: err.message, stack: err.stack };
             }
         });
         console.log(`   Manual call result: ${manualResult.success ? 'SUCCESS' : 'FAILED'}`);
         if (!manualResult.success) {
             console.log(`   Error: ${manualResult.error}`);
+            if (manualResult.stack) {
+                console.log(`   Stack trace:\n${manualResult.stack}`);
+            }
         }
         
         // Wait and check again
-        console.log('15. Waiting 2 seconds after manual call...');
+        console.log('\n16. Waiting 2 seconds after manual call...');
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         const finalState = await page.evaluate(() => {
