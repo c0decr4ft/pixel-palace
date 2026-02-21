@@ -13,9 +13,10 @@ function initTriangles() {
     const NEON_GOLD = '#ffd700';
     const DIM = 'rgba(255,255,255,0.18)';
     const BG = '#0d0021';
+    const isTouch = matchMedia('(pointer: coarse)').matches;
     const DOT_R = 6;
     const LINE_W = 3;
-    const HIT_R = 18;
+    const HIT_R = isTouch ? 32 : 18;
 
     // Grid: 5 rows of dots forming a triangular mesh
     // Rows alternate between N and N-1 dots (offset pattern)
@@ -250,6 +251,9 @@ function initTriangles() {
     }
 
     // ── AI ──
+    let lastAIEdge = null;
+    let aiFlashTimer = null;
+
     function doAIMove() {
         if (gameOver || currentPlayer !== 2 || !vsAI) return;
         aiThinking = true;
@@ -257,11 +261,12 @@ function initTriangles() {
             if (gameOver) { aiThinking = false; return; }
             const move = aiBestEdge();
             if (move) {
+                lastAIEdge = move;
                 applyMove(move);
                 draw();
-                if (isOnline && conn) {
-                    try { conn.send({ type: 'move', edge: move }); } catch (e) {}
-                }
+                // Clear the AI highlight after a moment
+                if (aiFlashTimer) clearTimeout(aiFlashTimer);
+                aiFlashTimer = setTimeout(() => { lastAIEdge = null; draw(); }, 600);
                 // AI gets another turn if it claimed a triangle
                 if (!gameOver && currentPlayer === 2) {
                     doAIMove();
@@ -270,53 +275,66 @@ function initTriangles() {
             }
             aiThinking = false;
             draw();
-        }, 300);
+        }, 500);
     }
 
     function aiBestEdge() {
         const available = allEdges.filter(([a, b]) => !drawnEdges.has(edgeKey(a, b)));
         if (available.length === 0) return null;
 
-        // Priority 1: edges that complete a triangle
-        for (const [a, b] of available) {
-            const ek = edgeKey(a, b);
+        // Count how many triangles an edge would complete (claim for the AI)
+        function countCompletions(ek) {
             const tris = edgeToTris[ek] || [];
+            let count = 0;
             for (const ti of tris) {
                 if (claimedTris[ti] != null) continue;
                 const [ta, tb, tc] = triangles[ti];
                 const edges = [edgeKey(ta, tb), edgeKey(ta, tc), edgeKey(tb, tc)];
                 const drawn = edges.filter(e => drawnEdges.has(e) || e === ek).length;
-                if (drawn === 3) return ek;
+                if (drawn === 3) count++;
             }
-        }
-
-        // Count how many unclaimed triangles would reach 2-of-3 edges after a move,
-        // giving the opponent a completion opportunity.
-        function countGiveaways(ek) {
-            drawnEdges.add(ek);
-            let count = 0;
-            for (let ti = 0; ti < triangles.length; ti++) {
-                if (claimedTris[ti] != null) continue;
-                const [ta, tb, tc] = triangles[ti];
-                const edges = [edgeKey(ta, tb), edgeKey(ta, tc), edgeKey(tb, tc)];
-                const drawnCount = edges.filter(e => drawnEdges.has(e)).length;
-                if (drawnCount === 2) count++;
-            }
-            drawnEdges.delete(ek);
             return count;
         }
 
-        // Priority 2: pick the edge that minimises giveaways
-        let bestEdge = null;
+        // Priority 1: pick the edge that completes the most triangles
+        let bestComplete = 0;
+        let completingEdges = [];
+        for (const [a, b] of available) {
+            const ek = edgeKey(a, b);
+            const c = countCompletions(ek);
+            if (c > bestComplete) { bestComplete = c; completingEdges = [ek]; }
+            else if (c === bestComplete && c > 0) completingEdges.push(ek);
+        }
+        if (bestComplete > 0) {
+            return completingEdges[Math.floor(Math.random() * completingEdges.length)];
+        }
+
+        // Count how many NEW "2-of-3" situations this move creates for the opponent.
+        // Only count triangles that go from <2 drawn edges to exactly 2 after drawing ek.
+        function countNewGiveaways(ek) {
+            let count = 0;
+            const tris = edgeToTris[ek] || [];
+            for (const ti of tris) {
+                if (claimedTris[ti] != null) continue;
+                const [ta, tb, tc] = triangles[ti];
+                const edges = [edgeKey(ta, tb), edgeKey(ta, tc), edgeKey(tb, tc)];
+                const drawnBefore = edges.filter(e => drawnEdges.has(e)).length;
+                // ek is one of these edges and is not yet drawn, so after drawing:
+                // drawnAfter = drawnBefore + 1
+                if (drawnBefore + 1 === 2) count++;
+            }
+            return count;
+        }
+
+        // Priority 2: pick the edge that creates the fewest new giveaways
         let bestGiveaway = Infinity;
         for (const [a, b] of available) {
             const ek = edgeKey(a, b);
-            const g = countGiveaways(ek);
-            if (g < bestGiveaway) { bestGiveaway = g; bestEdge = ek; }
+            const g = countNewGiveaways(ek);
+            if (g < bestGiveaway) bestGiveaway = g;
         }
-        // Among all edges with the same (best) giveaway count, pick randomly
-        const tied = available.filter(([a, b]) => countGiveaways(edgeKey(a, b)) === bestGiveaway);
-        const pick = tied[Math.floor(Math.random() * tied.length)];
+        const safe = available.filter(([a, b]) => countNewGiveaways(edgeKey(a, b)) === bestGiveaway);
+        const pick = safe[Math.floor(Math.random() * safe.length)];
         return edgeKey(pick[0], pick[1]);
     }
 
@@ -495,14 +513,31 @@ function initTriangles() {
         handlePointer(e);
     }
 
+    // On touch devices, also highlight on touchmove so the user can see what they'll select
+    function onTouchMove(e) {
+        if (!gameActive || gameOver) return;
+        e.preventDefault();
+        handleHover(e);
+    }
+    function onTouchEnd(e) {
+        hoveredEdge = null;
+        draw();
+    }
+
     canvas.addEventListener('mousedown', onPointerDown);
     canvas.addEventListener('touchstart', onPointerDown, { passive: false });
     canvas.addEventListener('mousemove', handleHover);
     canvas.addEventListener('mouseleave', () => { hoveredEdge = null; draw(); });
+    if (isTouch) {
+        canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+        canvas.addEventListener('touchend', onTouchEnd, { passive: true });
+    }
     cleanupFunctions.push(() => {
         canvas.removeEventListener('mousedown', onPointerDown);
         canvas.removeEventListener('touchstart', onPointerDown);
         canvas.removeEventListener('mousemove', handleHover);
+        canvas.removeEventListener('touchmove', onTouchMove);
+        canvas.removeEventListener('touchend', onTouchEnd);
     });
 
     // ── Drawing ──
@@ -511,6 +546,7 @@ function initTriangles() {
         ctx.fillRect(0, 0, SIZE, SIZE);
 
         // Draw available edges as dim lines
+        const dimLineW = isTouch ? 2.5 : 1;
         for (const [i, j] of allEdges) {
             const ek = edgeKey(i, j);
             if (drawnEdges.has(ek)) continue;
@@ -518,7 +554,7 @@ function initTriangles() {
             ctx.strokeStyle = (ek === hoveredEdge)
                 ? (currentPlayer === 1 ? 'rgba(0,255,252,0.4)' : 'rgba(255,60,127,0.4)')
                 : DIM;
-            ctx.lineWidth = (ek === hoveredEdge) ? LINE_W + 2 : 1;
+            ctx.lineWidth = (ek === hoveredEdge) ? LINE_W + 2 : dimLineW;
             ctx.beginPath();
             ctx.moveTo(d1.x, d1.y);
             ctx.lineTo(d2.x, d2.y);
@@ -555,8 +591,9 @@ function initTriangles() {
         for (const ek of drawnEdges) {
             const [si, sj] = ek.split(',').map(Number);
             const d1 = dots[si], d2 = dots[sj];
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = LINE_W;
+            const isAIFlash = (ek === lastAIEdge);
+            ctx.strokeStyle = isAIFlash ? NEON_PINK : '#ffffff';
+            ctx.lineWidth = isAIFlash ? LINE_W + 3 : LINE_W;
             ctx.beginPath();
             ctx.moveTo(d1.x, d1.y);
             ctx.lineTo(d2.x, d2.y);
@@ -625,6 +662,7 @@ function initTriangles() {
     // ── Cleanup ──
     cleanupFunctions.push(() => {
         modeOverlay.remove();
+        if (aiFlashTimer) clearTimeout(aiFlashTimer);
         if (peer) { try { peer.destroy(); } catch (e) {} }
     });
 }
