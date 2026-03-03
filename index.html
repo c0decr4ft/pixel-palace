@@ -37,6 +37,31 @@
             crossorigin="anonymous"></script>
 </head>
 <body>
+    <!-- ========== LANDING PAGE ========== -->
+    <div class="landing-page" id="landingPage">
+        <div class="landing-bg"></div>
+        <div class="landing-content">
+            <h1 class="landing-title">GAME CENTER</h1>
+            <p class="landing-sub">Choose your style</p>
+            <div class="landing-choices">
+                <button class="landing-card landing-arcade" id="chooseArcade">
+                    <div class="landing-card-icon">🕹️</div>
+                    <h2>ARCADE</h2>
+                    <p>Retro neon aesthetic<br>Classic pixel games</p>
+                    <span class="landing-card-tag">PIXEL PALACE</span>
+                </button>
+                <button class="landing-card landing-modern" id="chooseModern">
+                    <div class="landing-card-icon">🎮</div>
+                    <h2>MODERN</h2>
+                    <p>Clean minimal design<br>Polished visuals</p>
+                    <span class="landing-card-tag">COMING SOON</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ARCADE: PIXEL PALACE ========== -->
+    <div class="arcade-wrapper" id="arcadeWrapper" style="display:none">
     <div class="scanlines"></div>
     <div class="noise"></div>
     
@@ -96,7 +121,7 @@
                 <div class="cabinet-info">
                     <h3>PONG</h3>
                     <p>VS AI or Online</p>
-                    <div class="difficulty">★★★★½</div>
+                    <div class="difficulty">★★★★☆</div>
                 </div>
                 <button class="play-btn">PLAY</button>
             </div>
@@ -299,6 +324,24 @@
             </button>
         </div>
     </footer>
+    </div><!-- /arcade-wrapper -->
+
+    <!-- ========== MODERN LOBBY ========== -->
+    <div class="modern-wrapper" id="modernWrapper" style="display:none">
+        <header class="modern-header">
+            <button class="modern-back-home" id="modernBackHome">← Home</button>
+            <h1 class="modern-title">GAME CENTER</h1>
+            <span class="modern-badge">MODERN</span>
+        </header>
+        <main class="modern-lobby">
+            <div class="modern-coming-soon">
+                <div class="modern-cs-icon">🚀</div>
+                <h2>Coming Soon</h2>
+                <p>Modern games with polished visuals are on the way.<br>Stay tuned for updates!</p>
+                <button class="modern-go-arcade" id="modernGoArcade">Play Arcade Games →</button>
+            </div>
+        </main>
+    </div>
 
     <script src="js/core.js"></script>
     <script src="js/games/snake.js"></script>

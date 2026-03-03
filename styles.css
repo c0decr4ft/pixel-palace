@@ -1,5 +1,259 @@
 /* === PIXEL PALACE - GAME CENTER STYLES === */
 
+/* ========== LANDING PAGE ========== */
+.landing-page {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.landing-bg {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(100, 0, 255, 0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(0, 200, 255, 0.15) 0%, transparent 60%),
+        linear-gradient(160deg, #08080f 0%, #0d0d1a 40%, #0a0a14 100%);
+}
+
+.landing-content {
+    position: relative;
+    text-align: center;
+    padding: 2rem;
+    max-width: 700px;
+    width: 100%;
+    animation: landingFadeIn 0.8s ease-out;
+}
+
+@keyframes landingFadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.landing-title {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    letter-spacing: 0.15em;
+    color: #fff;
+    margin-bottom: 0.4rem;
+}
+
+.landing-sub {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.75rem, 2vw, 1rem);
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    margin-bottom: 2.5rem;
+}
+
+.landing-choices {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.landing-card {
+    flex: 1 1 250px;
+    max-width: 300px;
+    padding: 2.5rem 2rem 2rem;
+    border-radius: 20px;
+    cursor: pointer;
+    text-align: center;
+    border: 2px solid;
+    transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: 'Orbitron', sans-serif;
+    color: #fff;
+}
+
+.landing-card:hover {
+    transform: translateY(-6px);
+}
+
+.landing-card-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.landing-card h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.6rem;
+}
+
+.landing-card p {
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 1.2rem;
+}
+
+.landing-card-tag {
+    display: inline-block;
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    font-weight: 700;
+}
+
+/* Arcade card */
+.landing-arcade {
+    border-color: rgba(255, 0, 255, 0.4);
+}
+.landing-arcade:hover {
+    border-color: #ff00ff;
+    box-shadow: 0 10px 40px rgba(255, 0, 255, 0.25), 0 0 80px rgba(255, 0, 255, 0.1);
+}
+.landing-arcade .landing-card-tag {
+    background: rgba(255, 0, 255, 0.2);
+    color: #ff66ff;
+    border: 1px solid rgba(255, 0, 255, 0.3);
+}
+
+/* Modern card */
+.landing-modern {
+    border-color: rgba(0, 180, 255, 0.4);
+}
+.landing-modern:hover {
+    border-color: #00b4ff;
+    box-shadow: 0 10px 40px rgba(0, 180, 255, 0.25), 0 0 80px rgba(0, 180, 255, 0.1);
+}
+.landing-modern .landing-card-tag {
+    background: rgba(0, 180, 255, 0.15);
+    color: #66d4ff;
+    border: 1px solid rgba(0, 180, 255, 0.3);
+}
+
+/* ========== MODERN LOBBY ========== */
+.modern-wrapper {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #0e0e16 0%, #12121e 50%, #0a0a12 100%);
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.modern-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.2rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modern-back-home {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.modern-back-home:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+}
+
+.modern-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    flex: 1;
+}
+
+.modern-badge {
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    background: rgba(0, 180, 255, 0.12);
+    color: #66d4ff;
+    border: 1px solid rgba(0, 180, 255, 0.25);
+}
+
+.modern-lobby {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 80px);
+    padding: 2rem;
+}
+
+.modern-coming-soon {
+    text-align: center;
+    max-width: 420px;
+    animation: landingFadeIn 0.6s ease-out;
+}
+
+.modern-cs-icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+}
+
+.modern-coming-soon h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #fff;
+}
+
+.modern-coming-soon p {
+    font-size: 0.75rem;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.45);
+    margin-bottom: 2rem;
+}
+
+.modern-go-arcade {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.8rem 2rem;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 0, 255, 0.5);
+    background: rgba(255, 0, 255, 0.1);
+    color: #ff66ff;
+    cursor: pointer;
+    transition: all 0.25s;
+}
+.modern-go-arcade:hover {
+    background: rgba(255, 0, 255, 0.2);
+    border-color: #ff00ff;
+    box-shadow: 0 4px 20px rgba(255, 0, 255, 0.2);
+}
+
+/* Landing responsive */
+@media (max-width: 600px) {
+    .landing-choices {
+        flex-direction: column;
+        align-items: center;
+    }
+    .landing-card {
+        max-width: 100%;
+    }
+    .modern-header {
+        padding: 1rem;
+        flex-wrap: wrap;
+    }
+}
+
+/* ========== END LANDING / MODERN ========== */
+
 :root {
     --neon-pink: #ff00ff;
     --neon-cyan: #00ffff;

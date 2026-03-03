@@ -451,14 +451,37 @@ function initPong() {
         conn.on('data', (raw) => {
             const data = sanitizePeerData(raw);
             if (!data) return;
+            // Joiner paddle update (short key)
+            if (data.t === 'p' && typeof data.y === 'number' && isFinite(data.y)) remotePaddle = data.y;
             if (data.t === 'paddle' && typeof data.y === 'number' && isFinite(data.y)) remotePaddle = data.y;
+            // Host state update (short keys)
+            if (data.t === 's') {
+                if (typeof data.bx === 'number') ballX = data.bx;
+                if (typeof data.by === 'number') ballY = data.by;
+                if (typeof data.sx === 'number') ballSpeedX = data.sx;
+                if (typeof data.sy === 'number') ballSpeedY = data.sy;
+                if (typeof data.s1 === 'number') score1 = data.s1;
+                if (typeof data.s2 === 'number') score2 = data.s2;
+                if (typeof data.p1 === 'number') {
+                    if (!isHost) remotePaddle = data.p1;
+                    else paddle1Y = data.p1;
+                }
+                if ((data.w === 'p1' || data.w === 'p2') && !winner) {
+                    gameOver = true;
+                    winner = data.w;
+                    const myRole = isHost ? 'p1' : 'p2';
+                    if (winner === myRole) playSound(800, 0.3);
+                    else playGameOverJingle();
+                }
+            }
+            // Legacy long-key format support
             if (data.t === 'state') {
                 if (typeof data.ballX === 'number') ballX = data.ballX;
                 if (typeof data.ballY === 'number') ballY = data.ballY;
                 if (typeof data.ballSpeedX === 'number') ballSpeedX = data.ballSpeedX;
                 if (typeof data.ballSpeedY === 'number') ballSpeedY = data.ballSpeedY;
-                if (typeof data.score1 === 'number') score1 = Math.floor(data.score1);
-                if (typeof data.score2 === 'number') score2 = Math.floor(data.score2);
+                if (typeof data.score1 === 'number') score1 = data.score1;
+                if (typeof data.score2 === 'number') score2 = data.score2;
                 if (typeof data.paddle1Y === 'number') {
                     if (!isHost) remotePaddle = data.paddle1Y;
                     else paddle1Y = data.paddle1Y;
@@ -483,7 +506,8 @@ function initPong() {
         }
         
         let lastTime = performance.now();
-        const SEND_INTERVAL = 1/25;
+        const HOST_SEND_INTERVAL = 1/15;
+        const JOIN_SEND_INTERVAL = 1/20;
         let sendAcc = 0;
         let ballAccum = 0;
         const BALL_DT = 1/60;
@@ -536,7 +560,7 @@ function initPong() {
             }
             
             // Smoothly interpolate the remote paddle toward its target
-            const lerpSpeed = 18; // higher = snappier
+            const lerpSpeed = 22;
             displayRemotePaddle += (remotePaddle - displayRemotePaddle) * Math.min(1, lerpSpeed * dt);
 
             if (isHost) {
@@ -593,17 +617,16 @@ function initPong() {
                 ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
                 
                 sendAcc += dt;
-                if (sendAcc >= SEND_INTERVAL) {
+                if (sendAcc >= HOST_SEND_INTERVAL) {
                     sendAcc = 0;
-                    conn.send({ t: 'state', ballX, ballY, ballSpeedX, ballSpeedY, score1, score2, paddle1Y, paddle2Y, winner });
+                    conn.send({ t: 's', bx: ballX|0, by: ballY|0, sx: +(ballSpeedX.toFixed(2)), sy: +(ballSpeedY.toFixed(2)), s1: score1, s2: score2, p1: paddle1Y|0, p2: paddle2Y|0, w: winner || '' });
                 }
             } else {
-                // Joiner: smooth the host's paddle (paddle1Y) from network updates
                 paddle1Y = displayRemotePaddle;
                 sendAcc += dt;
-                if (sendAcc >= SEND_INTERVAL) {
+                if (sendAcc >= JOIN_SEND_INTERVAL) {
                     sendAcc = 0;
-                    conn.send({ t: 'paddle', y: paddle2Y });
+                    conn.send({ t: 'p', y: paddle2Y|0 });
                 }
             }
             

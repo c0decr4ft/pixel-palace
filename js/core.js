@@ -104,6 +104,42 @@ if (!canvas || !ctx) {
     console.error('PIXEL PALACE: Canvas not found or 2D context not available. Check that index.html has <canvas id="gameCanvas">.');
 }
 
+// === LANDING PAGE ===
+(function initLanding() {
+    var landing = document.getElementById('landingPage');
+    var arcadeWrap = document.getElementById('arcadeWrapper');
+    var modernWrap = document.getElementById('modernWrapper');
+    if (!landing) return;
+
+    function showArcade() {
+        landing.style.display = 'none';
+        if (arcadeWrap) arcadeWrap.style.display = '';
+        if (modernWrap) modernWrap.style.display = 'none';
+    }
+
+    function showModern() {
+        landing.style.display = 'none';
+        if (arcadeWrap) arcadeWrap.style.display = 'none';
+        if (modernWrap) modernWrap.style.display = '';
+    }
+
+    function showLanding() {
+        landing.style.display = '';
+        if (arcadeWrap) arcadeWrap.style.display = 'none';
+        if (modernWrap) modernWrap.style.display = 'none';
+    }
+
+    var btnArcade = document.getElementById('chooseArcade');
+    var btnModern = document.getElementById('chooseModern');
+    var btnModernBack = document.getElementById('modernBackHome');
+    var btnModernGoArcade = document.getElementById('modernGoArcade');
+
+    if (btnArcade) btnArcade.addEventListener('click', showArcade);
+    if (btnModern) btnModern.addEventListener('click', showModern);
+    if (btnModernBack) btnModernBack.addEventListener('click', showLanding);
+    if (btnModernGoArcade) btnModernGoArcade.addEventListener('click', showArcade);
+})();
+
 let currentGame = null;
 let gameLoop = null;
 let score = 0;
