@@ -186,55 +186,154 @@
 }
 
 .modern-lobby {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.modern-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.2rem;
+    animation: landingFadeIn 0.5s ease-out;
+}
+
+.modern-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.25s, box-shadow 0.25s;
+    text-align: left;
+    font-family: 'Orbitron', sans-serif;
+    padding: 0;
+    color: #fff;
+}
+.modern-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(100, 180, 255, 0.35);
+    box-shadow: 0 8px 30px rgba(0, 120, 255, 0.12);
+}
+.modern-card:active {
+    transform: translateY(-1px);
+}
+
+.modern-card-preview {
+    height: 120px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: calc(100vh - 80px);
-    padding: 2rem;
+    position: relative;
+    overflow: hidden;
 }
 
-.modern-coming-soon {
-    text-align: center;
-    max-width: 420px;
-    animation: landingFadeIn 0.6s ease-out;
+.modern-card-info {
+    padding: 0.8rem 1rem 1rem;
 }
-
-.modern-cs-icon {
-    font-size: 4rem;
-    margin-bottom: 1.5rem;
-}
-
-.modern-coming-soon h2 {
-    font-size: 1.5rem;
+.modern-card-info h3 {
+    font-size: 0.72rem;
     font-weight: 700;
-    margin-bottom: 1rem;
-    color: #fff;
+    margin: 0 0 0.3rem;
+    letter-spacing: 0.04em;
+}
+.modern-card-info p {
+    font-size: 0.52rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0;
+    line-height: 1.5;
 }
 
-.modern-coming-soon p {
-    font-size: 0.75rem;
-    line-height: 1.8;
-    color: rgba(255, 255, 255, 0.45);
-    margin-bottom: 2rem;
+/* --- Modern card preview animations --- */
+
+/* Stack Tower */
+.mc-stack {
+    background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 30px;
+}
+.mc-block {
+    height: 12px;
+    border-radius: 3px;
+    animation: mcSlide 2s ease-in-out infinite;
+}
+.mc-b1 { width: 70px; background: #ef5350; animation-delay: 0s; }
+.mc-b2 { width: 64px; background: #ffa726; animation-delay: 0.3s; }
+.mc-b3 { width: 58px; background: #42a5f5; animation-delay: 0.6s; }
+@keyframes mcSlide {
+    0%, 100% { transform: translateX(-15px); }
+    50% { transform: translateX(15px); }
 }
 
-.modern-go-arcade {
+/* Reaction */
+.mc-reaction {
+    background: linear-gradient(135deg, #1b2e1b 0%, #0f1a0f 100%);
+}
+.mc-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #cf222e;
+    animation: mcPulseGreen 3s ease-in-out infinite;
+}
+@keyframes mcPulseGreen {
+    0%, 40% { background: #cf222e; transform: scale(1); }
+    50%, 65% { background: #2da44e; transform: scale(1.15); }
+    75%, 100% { background: #cf222e; transform: scale(1); }
+}
+
+/* Aim Trainer */
+.mc-aim {
+    background: linear-gradient(135deg, #12121e 0%, #0a0a14 100%);
+}
+.mc-crosshair {
+    font-size: 28px;
+    color: rgba(255,255,255,0.15);
+    position: absolute;
+}
+.mc-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    position: absolute;
+    animation: mcBlink 2s ease-in-out infinite;
+}
+.mc-d1 { background: #ef5350; top: 25px; left: 30px; animation-delay: 0s; }
+.mc-d2 { background: #42a5f5; top: 60px; right: 40px; animation-delay: 0.7s; }
+.mc-d3 { background: #66bb6a; bottom: 20px; left: 60px; animation-delay: 1.3s; }
+@keyframes mcBlink {
+    0%, 30% { opacity: 0; transform: scale(0.5); }
+    40%, 60% { opacity: 1; transform: scale(1); }
+    70%, 100% { opacity: 0; transform: scale(0.5); }
+}
+
+/* Color Match */
+.mc-color {
+    background: linear-gradient(135deg, #14141f 0%, #0a0a12 100%);
+}
+.mc-word {
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    padding: 0.8rem 2rem;
-    border-radius: 12px;
-    border: 2px solid rgba(255, 0, 255, 0.5);
-    background: rgba(255, 0, 255, 0.1);
-    color: #ff66ff;
-    cursor: pointer;
-    transition: all 0.25s;
+    font-size: 1.2rem;
+    font-weight: 900;
+    animation: mcWordSwap 4s steps(1) infinite;
 }
-.modern-go-arcade:hover {
-    background: rgba(255, 0, 255, 0.2);
-    border-color: #ff00ff;
-    box-shadow: 0 4px 20px rgba(255, 0, 255, 0.2);
+@keyframes mcWordSwap {
+    0%, 24%   { color: #42a5f5; }
+    25%, 49%  { color: #ef5350; }
+    50%, 74%  { color: #66bb6a; }
+    75%, 100% { color: #ffa726; }
+}
+
+@media (max-width: 480px) {
+    .modern-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+    }
+    .modern-card-preview {
+        height: 90px;
+    }
+}
 }
 
 /* Landing responsive */

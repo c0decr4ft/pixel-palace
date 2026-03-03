@@ -333,12 +333,54 @@
             <h1 class="modern-title">GAME CENTER</h1>
             <span class="modern-badge">MODERN</span>
         </header>
-        <main class="modern-lobby">
-            <div class="modern-coming-soon">
-                <div class="modern-cs-icon">🚀</div>
-                <h2>Coming Soon</h2>
-                <p>Modern games with polished visuals are on the way.<br>Stay tuned for updates!</p>
-                <button class="modern-go-arcade" id="modernGoArcade">Play Arcade Games →</button>
+        <main class="modern-lobby" id="modernLobby">
+            <div class="modern-grid">
+
+                <button class="modern-card" data-game="stacktower">
+                    <div class="modern-card-preview mc-stack">
+                        <div class="mc-block mc-b1"></div>
+                        <div class="mc-block mc-b2"></div>
+                        <div class="mc-block mc-b3"></div>
+                    </div>
+                    <div class="modern-card-info">
+                        <h3>Stack Tower</h3>
+                        <p>Time your drop perfectly</p>
+                    </div>
+                </button>
+
+                <button class="modern-card" data-game="reaction">
+                    <div class="modern-card-preview mc-reaction">
+                        <div class="mc-circle"></div>
+                    </div>
+                    <div class="modern-card-info">
+                        <h3>Reaction</h3>
+                        <p>Test your reflexes</p>
+                    </div>
+                </button>
+
+                <button class="modern-card" data-game="aimtrainer">
+                    <div class="modern-card-preview mc-aim">
+                        <div class="mc-crosshair">+</div>
+                        <div class="mc-dot mc-d1"></div>
+                        <div class="mc-dot mc-d2"></div>
+                        <div class="mc-dot mc-d3"></div>
+                    </div>
+                    <div class="modern-card-info">
+                        <h3>Aim Trainer</h3>
+                        <p>Click the targets fast</p>
+                    </div>
+                </button>
+
+                <button class="modern-card" data-game="colormatch">
+                    <div class="modern-card-preview mc-color">
+                        <span class="mc-word" style="color:#42a5f5">RED</span>
+                    </div>
+                    <div class="modern-card-info">
+                        <h3>Color Match</h3>
+                        <p>Don't trust the word</p>
+                    </div>
+                </button>
+
             </div>
         </main>
     </div>
@@ -355,5 +397,9 @@
     <script src="js/games/tictactoe.js"></script>
     <script src="js/games/triangles.js"></script>
     <script src="js/games/racer.js"></script>
+    <script src="js/games/stacktower.js"></script>
+    <script src="js/games/reaction.js"></script>
+    <script src="js/games/aimtrainer.js"></script>
+    <script src="js/games/colormatch.js"></script>
 </body>
 </html>
