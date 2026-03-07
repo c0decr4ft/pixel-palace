@@ -104,43 +104,6 @@ if (!canvas || !ctx) {
     console.error('PIXEL PALACE: Canvas not found or 2D context not available. Check that index.html has <canvas id="gameCanvas">.');
 }
 
-// === LANDING PAGE ===
-(function initLanding() {
-    var landing = document.getElementById('landingPage');
-    var arcadeWrap = document.getElementById('arcadeWrapper');
-    var modernWrap = document.getElementById('modernWrapper');
-    if (!landing) return;
-
-    function showArcade() {
-        landing.style.display = 'none';
-        if (arcadeWrap) arcadeWrap.style.display = '';
-        if (modernWrap) modernWrap.style.display = 'none';
-    }
-
-    function showModern() {
-        landing.style.display = 'none';
-        if (arcadeWrap) arcadeWrap.style.display = 'none';
-        if (modernWrap) modernWrap.style.display = '';
-    }
-
-    function showLanding() {
-        landing.style.display = '';
-        if (arcadeWrap) arcadeWrap.style.display = 'none';
-        if (modernWrap) modernWrap.style.display = 'none';
-    }
-
-    var btnArcade = document.getElementById('chooseArcade');
-    var btnModern = document.getElementById('chooseModern');
-    var btnModernBack = document.getElementById('modernBackHome');
-    var btnModernGoArcade = document.getElementById('modernGoArcade');
-
-    if (btnArcade) btnArcade.addEventListener('click', showArcade);
-    if (btnModern) btnModern.addEventListener('click', showModern);
-    if (btnModernBack) btnModernBack.addEventListener('click', showLanding);
-    if (btnModernGoArcade) btnModernGoArcade.addEventListener('click', showArcade);
-
-})();
-
 let currentGame = null;
 let gameLoop = null;
 let score = 0;
@@ -388,41 +351,6 @@ const GAME_MUSIC = {
             [294, 0.4], [0, 0.2], [262, 0.45], [0, 0.2],
             [294, 0.35], [0, 0.15], [262, 0.55], [0, 0.35]
         ]
-    ]},
-    /* Stack Tower — calm rising melody with gentle progression */
-    stacktower: { wave: 'sine', vol: 0.05, tracks: [
-        [
-            [330, 0.3], [0, 0.1], [392, 0.3], [0, 0.1],
-            [440, 0.3], [0, 0.1], [523, 0.4], [0, 0.2],
-            [440, 0.3], [0, 0.1], [392, 0.3], [0, 0.1],
-            [330, 0.4], [0, 0.3]
-        ]
-    ]},
-    /* Reaction — tense, minimal heartbeat pulse */
-    reaction: { wave: 'sine', vol: 0.04, tracks: [
-        [
-            [220, 0.1], [0, 0.5], [220, 0.1], [0, 0.8],
-            [220, 0.1], [0, 0.4], [220, 0.1], [0, 0.4],
-            [262, 0.1], [0, 0.8]
-        ]
-    ]},
-    /* Aim Trainer — energetic uptempo beat */
-    aimtrainer: { wave: 'square', vol: 0.04, tracks: [
-        [
-            [440, 0.1], [0, 0.05], [440, 0.1], [0, 0.15],
-            [523, 0.1], [0, 0.05], [587, 0.15], [0, 0.1],
-            [523, 0.1], [0, 0.05], [440, 0.12], [0, 0.1],
-            [392, 0.15], [0, 0.2]
-        ]
-    ]},
-    /* Color Match — playful bouncy tune */
-    colormatch: { wave: 'triangle', vol: 0.05, tracks: [
-        [
-            [523, 0.15], [0, 0.05], [587, 0.15], [0, 0.05],
-            [659, 0.2], [0, 0.1], [587, 0.15], [0, 0.05],
-            [523, 0.2], [0, 0.1], [440, 0.2], [0, 0.1],
-            [523, 0.3], [0, 0.2]
-        ]
     ]}
 };
 
@@ -653,14 +581,13 @@ tabs.forEach(tab => {
     });
 });
 
-// Play Button Handlers (Arcade)
+// Play Button Handlers
 document.querySelectorAll('.play-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
         const cabinet = btn.closest('.game-cabinet');
         const gameName = cabinet.dataset.game;
-        _returnToModern = false;
         startGame(gameName);
     });
 });
@@ -673,20 +600,11 @@ document.querySelectorAll('.game-cabinet').forEach(cabinet => {
     });
 });
 
-// Play Button Handlers (Modern)
-document.querySelectorAll('.modern-card[data-game]').forEach(function(card) {
-    card.addEventListener('click', function() {
-        var gameName = card.getAttribute('data-game');
-        if (gameName) {
-            _returnToModern = true;
-            startGame(gameName);
-        }
-    });
-});
-
 if (backBtn) {
     backBtn.addEventListener('click', () => {
         stopGame();
+        if (gameContainer) gameContainer.classList.remove('active');
+        if (lobby) lobby.style.display = 'block';
     });
 }
 
@@ -746,10 +664,6 @@ const GAME_DISPLAY_NAMES = {
     tictactoe: 'TIC TAC TOE',
     triangles: 'DOTS & TRIANGLES',
     racer: 'NEON RACER',
-    stacktower: 'STACK TOWER',
-    reaction: 'REACTION',
-    aimtrainer: 'AIM TRAINER',
-    colormatch: 'COLOR MATCH',
 };
 
 // === GAME INSTRUCTIONS ===
@@ -799,22 +713,6 @@ const GAME_INSTRUCTIONS = {
     racer: {
         desktop: ['← → or A/D to switch lanes', 'Dodge traffic — speed increases over time', 'Grab coins for bonus points'],
         mobile:  ['Tap left/right side of screen to switch lanes', 'Dodge traffic — speed increases over time', 'Grab coins for bonus points']
-    },
-    stacktower: {
-        desktop: ['Press SPACE to drop the block', 'Align it perfectly for combo points', 'Misaligned edges get chopped off!'],
-        mobile:  ['Tap to drop the block', 'Align it perfectly for combo points', 'Misaligned edges get chopped off!']
-    },
-    reaction: {
-        desktop: ['Wait for the screen to turn GREEN', 'Click or press SPACE as fast as you can', 'Don\'t click too early!'],
-        mobile:  ['Wait for the screen to turn GREEN', 'Tap as fast as you can', 'Don\'t tap too early!']
-    },
-    aimtrainer: {
-        desktop: ['Click the colored targets before they shrink', 'You have 30 seconds', 'Missing targets costs points!'],
-        mobile:  ['Tap the colored targets before they shrink', 'You have 30 seconds', 'Missing targets costs points!']
-    },
-    colormatch: {
-        desktop: ['Look at the COLOR of the word, not what it says', 'Click the matching color button', 'You have 30 seconds — build streaks!'],
-        mobile:  ['Look at the COLOR of the word, not what it says', 'Tap the matching color button', 'You have 30 seconds — build streaks!']
     }
 };
 
@@ -891,21 +789,12 @@ function showGameInstructions(gameName, onDone) {
     });
 }
 
-var _returnToModern = false;
-
 function startGame(gameName) {
-    if (!gameContainer || !canvas || !ctx) {
+    if (!lobby || !gameContainer || !canvas || !ctx) {
         console.error('PIXEL PALACE: Cannot start game — required elements missing.');
         return;
     }
-    // When launching from the modern lobby, show the arcade wrapper (which holds the game container)
-    if (_returnToModern) {
-        var modernWrap = document.getElementById('modernWrapper');
-        var arcadeWrap = document.getElementById('arcadeWrapper');
-        if (modernWrap) modernWrap.style.display = 'none';
-        if (arcadeWrap) arcadeWrap.style.display = '';
-    }
-    if (lobby) lobby.style.display = 'none';
+    lobby.style.display = 'none';
     gameContainer.classList.add('active');
     document.body.classList.add('game-active');
     currentGame = gameName;
@@ -937,9 +826,7 @@ function _launchGame(gameName) {
         snake: initSnake, tetris: initTetris, pong: initPong, tron: initTron,
         breakout: initBreakout, spaceinvaders: initSpaceInvaders,
         memory: initMemory2, '2048': init2048, tictactoe: initTicTacToe,
-        triangles: initTriangles, racer: initRacer,
-        stacktower: initStackTower, reaction: initReaction,
-        aimtrainer: initAimTrainer, colormatch: initColorMatch
+        triangles: initTriangles, racer: initRacer
     };
     const fn = _inits[gameName];
     if (!fn) {
@@ -981,15 +868,7 @@ function stopGame() {
         cancelAnimationFrame(gameLoop);
         gameLoop = null;
     }
-    if (_returnToModern) {
-        var arcadeWrap = document.getElementById('arcadeWrapper');
-        var modernWrap = document.getElementById('modernWrapper');
-        if (arcadeWrap) arcadeWrap.style.display = 'none';
-        if (modernWrap) modernWrap.style.display = '';
-        _returnToModern = false;
-    } else {
-        if (lobby) lobby.style.display = 'block';
-    }
+    if (lobby) lobby.style.display = 'block';
     if (gameContainer) gameContainer.classList.remove('active');
     document.body.classList.remove('game-active');
     currentGame = null;

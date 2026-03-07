@@ -37,31 +37,6 @@
             crossorigin="anonymous"></script>
 </head>
 <body>
-    <!-- ========== LANDING PAGE ========== -->
-    <div class="landing-page" id="landingPage">
-        <div class="landing-bg"></div>
-        <div class="landing-content">
-            <h1 class="landing-title">GAME CENTER</h1>
-            <p class="landing-sub">Choose your style</p>
-            <div class="landing-choices">
-                <button class="landing-card landing-arcade" id="chooseArcade">
-                    <div class="landing-card-icon">🕹️</div>
-                    <h2>ARCADE</h2>
-                    <p>Retro neon aesthetic<br>Classic pixel games</p>
-                    <span class="landing-card-tag">PIXEL PALACE</span>
-                </button>
-                <button class="landing-card landing-modern" id="chooseModern">
-                    <div class="landing-card-icon">🎮</div>
-                    <h2>MODERN</h2>
-                    <p>Clean minimal design<br>Polished visuals</p>
-                    <span class="landing-card-tag">COMING SOON</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========== ARCADE: PIXEL PALACE ========== -->
-    <div class="arcade-wrapper" id="arcadeWrapper" style="display:none">
     <div class="scanlines"></div>
     <div class="noise"></div>
     
@@ -324,67 +299,6 @@
             </button>
         </div>
     </footer>
-    </div><!-- /arcade-wrapper -->
-
-    <!-- ========== MODERN LOBBY ========== -->
-    <div class="modern-wrapper" id="modernWrapper" style="display:none">
-        <header class="modern-header">
-            <button class="modern-back-home" id="modernBackHome">← Home</button>
-            <h1 class="modern-title">GAME CENTER</h1>
-            <span class="modern-badge">MODERN</span>
-        </header>
-        <main class="modern-lobby" id="modernLobby">
-            <div class="modern-grid">
-
-                <button class="modern-card" data-game="stacktower">
-                    <div class="modern-card-preview mc-stack">
-                        <div class="mc-block mc-b1"></div>
-                        <div class="mc-block mc-b2"></div>
-                        <div class="mc-block mc-b3"></div>
-                    </div>
-                    <div class="modern-card-info">
-                        <h3>Stack Tower</h3>
-                        <p>Time your drop perfectly</p>
-                    </div>
-                </button>
-
-                <button class="modern-card" data-game="reaction">
-                    <div class="modern-card-preview mc-reaction">
-                        <div class="mc-circle"></div>
-                    </div>
-                    <div class="modern-card-info">
-                        <h3>Reaction</h3>
-                        <p>Test your reflexes</p>
-                    </div>
-                </button>
-
-                <button class="modern-card" data-game="aimtrainer">
-                    <div class="modern-card-preview mc-aim">
-                        <div class="mc-crosshair">+</div>
-                        <div class="mc-dot mc-d1"></div>
-                        <div class="mc-dot mc-d2"></div>
-                        <div class="mc-dot mc-d3"></div>
-                    </div>
-                    <div class="modern-card-info">
-                        <h3>Aim Trainer</h3>
-                        <p>Click the targets fast</p>
-                    </div>
-                </button>
-
-                <button class="modern-card" data-game="colormatch">
-                    <div class="modern-card-preview mc-color">
-                        <span class="mc-word" style="color:#42a5f5">RED</span>
-                    </div>
-                    <div class="modern-card-info">
-                        <h3>Color Match</h3>
-                        <p>Don't trust the word</p>
-                    </div>
-                </button>
-
-            </div>
-        </main>
-    </div>
-
     <script src="js/core.js"></script>
     <script src="js/games/snake.js"></script>
     <script src="js/games/tetris.js"></script>
@@ -397,9 +311,5 @@
     <script src="js/games/tictactoe.js"></script>
     <script src="js/games/triangles.js"></script>
     <script src="js/games/racer.js"></script>
-    <script src="js/games/stacktower.js"></script>
-    <script src="js/games/reaction.js"></script>
-    <script src="js/games/aimtrainer.js"></script>
-    <script src="js/games/colormatch.js"></script>
 </body>
 </html>
