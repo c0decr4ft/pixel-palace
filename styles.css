@@ -2448,18 +2448,80 @@ body.game-active #gameCanvas {
 }
 
 /* === NEON RACER === */
+.racer-promo-link {
+    position: absolute;
+    left: 0.65rem;
+    bottom: 0.55rem;
+    z-index: 40;
+    max-width: min(220px, 46vw);
+    padding: 0.4rem 0.55rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.62rem;
+    line-height: 1.35;
+    letter-spacing: 0.03em;
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    background: rgba(10, 0, 24, 0.72);
+    border: 1px solid rgba(0, 240, 255, 0.45);
+    border-radius: 6px;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);
+    pointer-events: auto;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.racer-promo-link .racer-promo-label {
+    display: block;
+    font-size: 0.52rem;
+    color: rgba(255, 43, 214, 0.85);
+    margin-bottom: 0.1rem;
+}
+.racer-promo-link strong {
+    color: #00f0ff;
+    font-weight: 700;
+}
+.racer-promo-link:hover,
+.racer-promo-link:focus-visible {
+    color: #fff;
+    border-color: #00f0ff;
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+    outline: none;
+}
+@media (max-width: 480px) {
+    .racer-promo-link {
+        left: 0.4rem;
+        bottom: 0.35rem;
+        max-width: 42vw;
+        font-size: 0.55rem;
+        padding: 0.32rem 0.42rem;
+    }
+}
+
 .racer-preview {
-    background: #0a0018;
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(255, 43, 214, 0.22), transparent 55%),
+        linear-gradient(180deg, #050010 0%, #120028 100%);
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
 }
 .racer-road {
-    width: 70%;
-    height: 90%;
-    background: #111125;
-    border-left: 3px solid #ff00ff;
-    border-right: 3px solid #ff00ff;
+    width: 58%;
+    height: 92%;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            #12122a 0,
+            #12122a 25%,
+            #1a1a36 25%,
+            #1a1a36 50%
+        );
+    border-left: 3px solid #ff2bd6;
+    border-right: 3px solid #00f0ff;
+    box-shadow:
+        -6px 0 12px rgba(255, 43, 214, 0.35),
+        6px 0 12px rgba(0, 240, 255, 0.35);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -2470,26 +2532,47 @@ body.game-active #gameCanvas {
     width: 2px;
     background: repeating-linear-gradient(
         to bottom,
-        rgba(255,255,255,0.15) 0px,
-        rgba(255,255,255,0.15) 12px,
-        transparent 12px,
-        transparent 24px
+        rgba(255,255,255,0.28) 0px,
+        rgba(255,255,255,0.28) 10px,
+        transparent 10px,
+        transparent 22px
     );
+    animation: racerDashScroll 0.55s linear infinite;
+}
+@keyframes racerDashScroll {
+    from { background-position: 0 0; }
+    to { background-position: 0 22px; }
 }
 .racer-car {
     position: absolute;
-    font-size: 18px;
-    line-height: 1;
+    width: 14px;
+    height: 22px;
+    border-radius: 3px 3px 2px 2px;
+    box-shadow: 0 0 8px currentColor;
+}
+.racer-car::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    top: 3px;
+    height: 5px;
+    background: rgba(255,255,255,0.45);
+    border-radius: 1px;
 }
 .racer-player {
-    color: #0ff0fc;
+    color: #00f0ff;
+    background: #00f0ff;
     bottom: 12%;
-    left: 55%;
+    left: 58%;
+    transform: translateX(-50%);
 }
 .racer-traffic {
     color: #ff3c7f;
-    top: 18%;
-    left: 22%;
+    background: #ff3c7f;
+    top: 16%;
+    left: 28%;
+    transform: translateX(-50%);
 }
 
 /* === TIC TAC TOE === */

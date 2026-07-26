@@ -59,6 +59,31 @@ function sanitizePeerData(data) {
     return clean;
 }
 
+// Realtime game traffic: unreliable/unordered so the host never stalls on a
+// backed-up reliable SCTP buffer (that was making room creators feel "slow").
+const PEER_GAME_CONN_OPTS = { reliable: false };
+// Skip sends when the data-channel buffer is congested (~16KB).
+const PEER_SEND_BUFFER_LIMIT = 16384;
+
+function connectPeerGame(peer, peerId) {
+    return peer.connect(peerId, PEER_GAME_CONN_OPTS);
+}
+
+/** Non-blocking PeerJS send. Returns false if skipped/failed (never throws). */
+function safePeerSend(conn, data) {
+    if (!conn || !conn.open) return false;
+    try {
+        const dc = conn.dataChannel;
+        if (dc && typeof dc.bufferedAmount === 'number' && dc.bufferedAmount > PEER_SEND_BUFFER_LIMIT) {
+            return false;
+        }
+        conn.send(data);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // Safely read a string from localStorage (returns fallback on any issue)
 function safeStorageGet(key, fallback) {
     try {
@@ -81,7 +106,8 @@ function isTouchOnUI(e) {
     if (t.closest('.game-header') || t.closest('.pause-overlay') ||
         t.closest('.pong-mode-overlay') || t.closest('.pong-online-overlay') ||
         t.closest('.ttt-mode-overlay') || t.closest('[class*="-mode-overlay"]') ||
-        t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'A') {
+        t.closest('.racer-promo-link') ||
+        t.closest('button') || t.closest('input') || t.closest('a')) {
         return true;
     }
     return false;
@@ -488,28 +514,31 @@ function parseGameCode(input) {
     return { peerId: clean.slice(0, 4), secret: clean.slice(4, 8) };
 }
 
-// Host: wrap peer.on('connection') with secret verification
-// Returns a cleanup function. onVerified(conn) is called only if the joiner sends the right secret.
+// Host: wrap peer.on('connection') with secret verification.
+// onVerified(conn) is called only if the joiner sends the right secret.
+// Keeps re-acking __auth after verify so unreliable channels can retry.
 function hostVerifyConnection(peerInstance, secret, onVerified, onReject) {
     function handler(conn) {
         conn.on('open', () => {
-            // Wait for the joiner to send the secret
             let verified = false;
             const timeout = setTimeout(() => {
                 if (!verified) { try { conn.close(); } catch(e){} }
             }, 8000); // 8 second timeout
             conn.on('data', function authHandler(raw) {
-                if (verified) return;
+                // Cheap reject of gameplay packets — do not sanitize every frame
+                if (!raw || typeof raw !== 'object' || raw.type !== '__auth') return;
                 const data = sanitizePeerData(raw);
-                if (data && data.type === '__auth' && typeof data.secret === 'string' && data.secret === secret) {
-                    verified = true;
+                if (!data) return;
+                if (typeof data.secret === 'string' && data.secret === secret) {
                     clearTimeout(timeout);
-                    try { conn.send({ type: '__auth_ok' }); } catch(e){}
-                    conn.off('data', authHandler);
-                    onVerified(conn);
-                } else {
+                    safePeerSend(conn, { type: '__auth_ok' });
+                    if (!verified) {
+                        verified = true;
+                        onVerified(conn);
+                    }
+                } else if (!verified) {
                     clearTimeout(timeout);
-                    try { conn.send({ type: '__auth_fail' }); } catch(e){}
+                    safePeerSend(conn, { type: '__auth_fail' });
                     setTimeout(() => { try { conn.close(); } catch(e){} }, 200);
                     if (onReject) onReject();
                 }
@@ -519,15 +548,27 @@ function hostVerifyConnection(peerInstance, secret, onVerified, onReject) {
     peerInstance.on('connection', handler);
 }
 
-// Joiner: after connection opens, send secret and wait for OK
+// Joiner: after connection opens, send secret and wait for OK.
+// Retries on an interval — needed when the data channel is unreliable.
 function joinerAuthenticate(conn, secret, onSuccess, onFail) {
     let done = false;
+    let retryTimer = null;
     const timeout = setTimeout(() => {
-        if (!done) { done = true; onFail('Timed out waiting for host.'); }
+        if (!done) {
+            done = true;
+            if (retryTimer) clearInterval(retryTimer);
+            onFail('Timed out waiting for host.');
+        }
     }, 8000);
-    conn.on('open', () => {
-        try { conn.send({ type: '__auth', secret }); } catch(e){}
-    });
+    function sendAuth() {
+        if (!done) safePeerSend(conn, { type: '__auth', secret });
+    }
+    function startAuthRetries() {
+        sendAuth();
+        if (!retryTimer) retryTimer = setInterval(sendAuth, 400);
+    }
+    conn.on('open', startAuthRetries);
+    if (conn.open) startAuthRetries();
     conn.on('data', function authHandler(raw) {
         if (done) return;
         const data = sanitizePeerData(raw);
@@ -535,17 +576,24 @@ function joinerAuthenticate(conn, secret, onSuccess, onFail) {
         if (data.type === '__auth_ok') {
             done = true;
             clearTimeout(timeout);
+            if (retryTimer) clearInterval(retryTimer);
             conn.off('data', authHandler);
             onSuccess();
         } else if (data.type === '__auth_fail') {
             done = true;
             clearTimeout(timeout);
+            if (retryTimer) clearInterval(retryTimer);
             conn.off('data', authHandler);
             onFail('Wrong code or connection rejected.');
         }
     });
     conn.on('error', () => {
-        if (!done) { done = true; clearTimeout(timeout); onFail('Connection error.'); }
+        if (!done) {
+            done = true;
+            clearTimeout(timeout);
+            if (retryTimer) clearInterval(retryTimer);
+            onFail('Connection error.');
+        }
     });
 }
 

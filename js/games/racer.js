@@ -4,42 +4,90 @@ function initRacer() {
     currentGameTitle.textContent = 'NEON RACER';
     gameControls.innerHTML = 'Dodge traffic &mdash; tap sides or arrow keys to switch lanes!';
 
-    var W = 300, H = 500;
+    // Bottom-left promo for the full online racer
+    var promo = document.createElement('a');
+    promo.href = 'https://c0decr4ft.github.io/racer-online/';
+    promo.target = '_blank';
+    promo.rel = 'noopener noreferrer';
+    promo.className = 'racer-promo-link';
+    promo.innerHTML = '<span class="racer-promo-label">Like this?</span> Try <strong>Racer Online</strong> →';
+    gameContainer.appendChild(promo);
+    cleanupFunctions.push(function() {
+        if (promo.parentNode) promo.parentNode.removeChild(promo);
+    });
+
+    var W = 360, H = 600;
     canvas.width = W;
     canvas.height = H;
 
     var LANE_COUNT = 4;
-    var LANE_W = 52;
+    var LANE_W = 58;
     var ROAD_L = (W - LANE_COUNT * LANE_W) / 2;
     var ROAD_R = ROAD_L + LANE_COUNT * LANE_W;
 
-    var CAR_W = 32;
-    var CAR_H = 56;
-    var PLAYER_Y = H - CAR_H - 40;
+    var CAR_W = 34;
+    var CAR_H = 58;
+    var PLAYER_Y = H - CAR_H - 48;
 
-    var BG = '#0a0018';
-    var ROAD_COL = '#111125';
-    var LINE_COL = 'rgba(255,255,255,0.15)';
-    var EDGE_COL = '#ff00ff';
-    var PLAYER_COL = '#0ff0fc';
-    var COIN_COL = '#ffd700';
+    var BG_TOP = '#050010';
+    var BG_BOT = '#120028';
+    var ROAD_COL = '#12122a';
+    var ROAD_STRIPE = '#1a1a36';
+    var LINE_COL = 'rgba(255,255,255,0.22)';
+    var EDGE_MAGENTA = '#ff2bd6';
+    var EDGE_CYAN = '#00f0ff';
+    var PLAYER_COL = '#00f0ff';
+    var COIN_COL = '#ffd84a';
 
     var BASE_SPEED = 180;
     var MAX_SPEED = 650;
     var ACCEL = 1.2;
 
-    var TRAFFIC_COLORS = ['#ff3c7f', '#ff6622', '#cc33ff', '#22ff66', '#ffaa00'];
+    var TRAFFIC_COLORS = ['#ff3c7f', '#ff6a2a', '#c44dff', '#2dff7a', '#ffb020', '#4d7cff'];
     var MAX_TRAFFIC = 6;
     var LANE_LERP = 12;
     var SAFE_GAP = CAR_H + 30;
 
     var currentLane, targetX, playerX, speed, dist, dead;
-    var cars, dashes, coins;
+    var cars, dashes, coins, buildings, stars;
     var spawnTimer, nextSpawn, lastTime;
-    var coinCount;
+    var coinCount, crashFlash, scrollY;
 
     function laneCenter(lane) {
         return ROAD_L + lane * LANE_W + (LANE_W - CAR_W) / 2;
+    }
+
+    function seedEnvironment() {
+        buildings = [];
+        // Left & right roadside towers
+        for (var side = 0; side < 2; side++) {
+            var xBase = side === 0 ? 4 : ROAD_R + 10;
+            var y = -40;
+            while (y < H + 120) {
+                var bw = 18 + Math.floor(Math.random() * 22);
+                var bh = 40 + Math.floor(Math.random() * 90);
+                var hue = Math.random() > 0.5 ? EDGE_MAGENTA : EDGE_CYAN;
+                buildings.push({
+                    side: side,
+                    x: xBase + Math.random() * 8,
+                    y: y,
+                    w: Math.min(bw, side === 0 ? ROAD_L - 10 : W - ROAD_R - 10),
+                    h: bh,
+                    color: hue,
+                    windows: Math.floor(2 + Math.random() * 4)
+                });
+                y += bh + 12 + Math.random() * 30;
+            }
+        }
+        stars = [];
+        for (var i = 0; i < 28; i++) {
+            stars.push({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                s: 0.6 + Math.random() * 1.4,
+                a: 0.25 + Math.random() * 0.55
+            });
+        }
     }
 
     function reset() {
@@ -56,7 +104,10 @@ function initRacer() {
         nextSpawn = 0.6;
         lastTime = -1;
         coinCount = 0;
-        for (var y = 0; y < H; y += 40) dashes.push(y);
+        crashFlash = 0;
+        scrollY = 0;
+        for (var y = 0; y < H; y += 36) dashes.push(y);
+        seedEnvironment();
         score = 0;
         updateScore(0);
     }
@@ -75,18 +126,7 @@ function initRacer() {
         playSound(440, 0.04);
     }
 
-    // --- Detailed car drawing ---
-    function drawCar(x, y, w, h, color, isPlayer) {
-        var r = 5;
-
-        // Shadow underneath
-        ctx.globalAlpha = 0.18;
-        ctx.fillStyle = '#000';
-        ctx.fillRect(x + 2, y + 4, w, h);
-        ctx.globalAlpha = 1;
-
-        // Body (rounded rect)
-        ctx.fillStyle = color;
+    function roundRect(x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + w - r, y);
@@ -97,108 +137,159 @@ function initRacer() {
         ctx.quadraticCurveTo(x, y + h, x, y + h - r);
         ctx.lineTo(x, y + r);
         ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+
+    // --- Detailed car drawing (no shadowBlur) ---
+    function drawCar(x, y, w, h, color, isPlayer) {
+        var r = 6;
+
+        // Soft underglow (layered rects)
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = color;
+        ctx.fillRect(x - 5, y - 2, w + 10, h + 8);
+        ctx.globalAlpha = 0.2;
+        ctx.fillRect(x - 2, y + h - 4, w + 4, 8);
+        ctx.globalAlpha = 1;
+
+        // Drop shadow
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(x + 3, y + 5, w, h);
+        ctx.globalAlpha = 1;
+
+        // Body
+        ctx.fillStyle = color;
+        roundRect(x, y, w, h, r);
         ctx.fill();
 
-        // Darker roof panel
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.fillRect(x + 4, y + 14, w - 8, h - 28);
+        // Highlight stripe down the hood
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x + w * 0.35, y + 4, w * 0.3, h - 8);
+        ctx.globalAlpha = 1;
+
+        // Cabin / roof
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        roundRect(x + 3, y + 16, w - 6, h - 32, 3);
+        ctx.fill();
 
         // Windshield
-        ctx.fillStyle = isPlayer ? 'rgba(0,255,252,0.35)' : 'rgba(100,180,255,0.35)';
+        ctx.fillStyle = isPlayer ? 'rgba(180,255,255,0.45)' : 'rgba(140,190,255,0.4)';
         ctx.beginPath();
         ctx.moveTo(x + 5, y + 8);
         ctx.lineTo(x + w - 5, y + 8);
-        ctx.lineTo(x + w - 7, y + 18);
-        ctx.lineTo(x + 7, y + 18);
+        ctx.lineTo(x + w - 8, y + 18);
+        ctx.lineTo(x + 8, y + 18);
+        ctx.closePath();
         ctx.fill();
 
         // Rear window
-        ctx.fillStyle = isPlayer ? 'rgba(0,255,252,0.2)' : 'rgba(100,180,255,0.2)';
-        ctx.fillRect(x + 7, y + h - 18, w - 14, 8);
+        ctx.fillStyle = isPlayer ? 'rgba(120,230,255,0.28)' : 'rgba(100,160,220,0.25)';
+        ctx.fillRect(x + 7, y + h - 18, w - 14, 7);
 
-        // Side mirrors
+        // Side vents
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(x + 3, y + h * 0.42, 3, 10);
+        ctx.fillRect(x + w - 6, y + h * 0.42, 3, 10);
+
+        // Mirrors
         ctx.fillStyle = color;
-        ctx.fillRect(x - 3, y + 12, 4, 6);
-        ctx.fillRect(x + w - 1, y + 12, 4, 6);
+        ctx.fillRect(x - 3, y + 14, 4, 7);
+        ctx.fillRect(x + w - 1, y + 14, 4, 7);
 
-        // Wheels (4 corners)
-        ctx.fillStyle = '#222';
-        ctx.fillRect(x - 1, y + 6, 4, 10);
-        ctx.fillRect(x + w - 3, y + 6, 4, 10);
-        ctx.fillRect(x - 1, y + h - 16, 4, 10);
-        ctx.fillRect(x + w - 3, y + h - 16, 4, 10);
-        // Wheel rims
-        ctx.fillStyle = '#666';
-        ctx.fillRect(x, y + 8, 2, 6);
-        ctx.fillRect(x + w - 2, y + 8, 2, 6);
-        ctx.fillRect(x, y + h - 14, 2, 6);
-        ctx.fillRect(x + w - 2, y + h - 14, 2, 6);
+        // Wheels
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x - 2, y + 8, 5, 12);
+        ctx.fillRect(x + w - 3, y + 8, 5, 12);
+        ctx.fillRect(x - 2, y + h - 20, 5, 12);
+        ctx.fillRect(x + w - 3, y + h - 20, 5, 12);
+        ctx.fillStyle = '#888';
+        ctx.fillRect(x - 1, y + 10, 2, 7);
+        ctx.fillRect(x + w - 1, y + 10, 2, 7);
+        ctx.fillRect(x - 1, y + h - 18, 2, 7);
+        ctx.fillRect(x + w - 1, y + h - 18, 2, 7);
 
         if (isPlayer) {
-            // Headlights (bright white)
+            // Headlights + beam
             ctx.fillStyle = '#fff';
-            ctx.fillRect(x + 4, y, 6, 3);
-            ctx.fillRect(x + w - 10, y, 6, 3);
-            ctx.globalAlpha = 0.4;
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(x + 3, y - 4, 8, 5);
-            ctx.fillRect(x + w - 11, y - 4, 8, 5);
+            ctx.fillRect(x + 5, y + 1, 7, 3);
+            ctx.fillRect(x + w - 12, y + 1, 7, 3);
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = '#cfffff';
+            ctx.beginPath();
+            ctx.moveTo(x + 5, y);
+            ctx.lineTo(x - 2, y - 28);
+            ctx.lineTo(x + 16, y - 28);
+            ctx.lineTo(x + 12, y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x + w - 12, y);
+            ctx.lineTo(x + w - 16, y - 28);
+            ctx.lineTo(x + w + 2, y - 28);
+            ctx.lineTo(x + w - 5, y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            // Neon trim
+            ctx.strokeStyle = '#fff';
+            ctx.globalAlpha = 0.35;
+            ctx.lineWidth = 1;
+            roundRect(x + 1, y + 1, w - 2, h - 2, r - 1);
+            ctx.stroke();
             ctx.globalAlpha = 1;
             // Brake lights
-            ctx.fillStyle = '#ff3333';
-            ctx.fillRect(x + 4, y + h - 3, 5, 3);
-            ctx.fillRect(x + w - 9, y + h - 3, 5, 3);
+            ctx.fillStyle = '#ff3355';
+            ctx.fillRect(x + 5, y + h - 3, 6, 3);
+            ctx.fillRect(x + w - 11, y + h - 3, 6, 3);
         } else {
-            // Traffic headlights (dim)
-            ctx.fillStyle = '#ddd';
-            ctx.fillRect(x + 4, y, 5, 3);
-            ctx.fillRect(x + w - 9, y, 5, 3);
-            // Tail lights (red glow)
-            ctx.fillStyle = '#ff2222';
-            ctx.fillRect(x + 4, y + h - 3, 5, 3);
-            ctx.fillRect(x + w - 9, y + h - 3, 5, 3);
-            ctx.globalAlpha = 0.25;
+            ctx.fillStyle = '#eee';
+            ctx.fillRect(x + 5, y + 1, 6, 3);
+            ctx.fillRect(x + w - 11, y + 1, 6, 3);
+            ctx.fillStyle = '#ff2244';
+            ctx.fillRect(x + 5, y + h - 3, 6, 3);
+            ctx.fillRect(x + w - 11, y + h - 3, 6, 3);
+            ctx.globalAlpha = 0.3;
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x + 2, y + h - 1, 9, 4);
-            ctx.fillRect(x + w - 11, y + h - 1, 9, 4);
+            ctx.fillRect(x + 3, y + h, 10, 5);
+            ctx.fillRect(x + w - 13, y + h, 10, 5);
             ctx.globalAlpha = 1;
         }
-
-        // Neon underglow
-        ctx.globalAlpha = 0.1;
-        ctx.fillStyle = color;
-        ctx.fillRect(x - 4, y - 3, w + 8, h + 6);
-        ctx.globalAlpha = 1;
     }
 
-    // --- Coin drawing ---
-    function drawCoin(c) {
-        var cx = c.x + 10;
-        var cy = c.y + 10;
-        var pulse = 0.8 + 0.2 * Math.sin(Date.now() / 120 + c.x);
+    function drawCoin(c, t) {
+        var cx = c.x + 11;
+        var cy = c.y + 11;
+        var pulse = 0.75 + 0.25 * Math.sin(t / 140 + c.x);
+        var spin = 0.65 + 0.35 * Math.abs(Math.sin(t / 220 + c.y * 0.02));
+
         ctx.save();
         ctx.globalAlpha = pulse;
+        // Soft halo
+        ctx.fillStyle = 'rgba(255,216,74,0.15)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+        ctx.fill();
         // Outer ring
         ctx.strokeStyle = COIN_COL;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, 10 * spin, 10, 0, 0, Math.PI * 2);
         ctx.stroke();
-        // Inner fill
-        ctx.fillStyle = COIN_COL;
+        // Face
+        ctx.fillStyle = '#ffe27a';
         ctx.beginPath();
-        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, 7 * spin, 7, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Dollar sign
-        ctx.fillStyle = '#a08000';
-        ctx.font = 'bold 9px monospace';
+        ctx.fillStyle = '#b8860b';
+        ctx.font = 'bold 10px "Press Start 2P", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('$', cx, cy + 1);
+        if (spin > 0.35) ctx.fillText('$', cx, cy + 1);
         ctx.restore();
     }
 
-    // --- Spawning with fairness ---
     function laneOccupied(lane, minY, maxY) {
         var lx = laneCenter(lane);
         for (var i = 0; i < cars.length; i++) {
@@ -212,24 +303,15 @@ function initRacer() {
     function spawnCar() {
         if (cars.length >= MAX_TRAFFIC) return;
 
-        // Build list of lanes that are free near the top
         var freeLanes = [];
-        var occupiedLanes = [];
         for (var l = 0; l < LANE_COUNT; l++) {
-            if (laneOccupied(l, -CAR_H - SAFE_GAP, SAFE_GAP)) {
-                occupiedLanes.push(l);
-            } else {
-                freeLanes.push(l);
-            }
+            if (!laneOccupied(l, -CAR_H - SAFE_GAP, SAFE_GAP)) freeLanes.push(l);
         }
-
-        // Always keep at least 1 lane free so the player can pass
         if (freeLanes.length <= 1) return;
 
         var lane = freeLanes[Math.floor(Math.random() * freeLanes.length)];
         var x = laneCenter(lane);
 
-        // Also ensure no vertical overlap with nearby cars in the same lane
         for (var i = 0; i < cars.length; i++) {
             if (Math.abs(cars[i].x - x) < CAR_W && cars[i].y < SAFE_GAP) return;
         }
@@ -244,7 +326,6 @@ function initRacer() {
     }
 
     function spawnCoin() {
-        // Place coin in a free lane
         var freeLanes = [];
         for (var l = 0; l < LANE_COUNT; l++) {
             if (!laneOccupied(l, -40, 40)) freeLanes.push(l);
@@ -252,7 +333,7 @@ function initRacer() {
         if (freeLanes.length === 0) return;
         var lane = freeLanes[Math.floor(Math.random() * freeLanes.length)];
         coins.push({
-            x: ROAD_L + lane * LANE_W + (LANE_W - 20) / 2,
+            x: ROAD_L + lane * LANE_W + (LANE_W - 22) / 2,
             y: -24
         });
     }
@@ -261,7 +342,6 @@ function initRacer() {
         return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
     }
 
-    // --- Prevent traffic cars from overlapping each other ---
     function pushCarsApart(dt) {
         for (var i = 0; i < cars.length; i++) {
             for (var j = i + 1; j < cars.length; j++) {
@@ -283,6 +363,211 @@ function initRacer() {
         }
     }
 
+    function drawBackground(t) {
+        // Night sky gradient
+        var sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, BG_TOP);
+        sky.addColorStop(0.55, '#0c0030');
+        sky.addColorStop(1, BG_BOT);
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, H);
+
+        // Stars
+        for (var i = 0; i < stars.length; i++) {
+            var s = stars[i];
+            var tw = s.a * (0.7 + 0.3 * Math.sin(t / 400 + i));
+            ctx.globalAlpha = tw;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(s.x, (s.y + scrollY * 0.15) % H, s.s, s.s);
+        }
+        ctx.globalAlpha = 1;
+
+        // Horizon haze
+        ctx.globalAlpha = 0.35;
+        var haze = ctx.createLinearGradient(0, 0, 0, 90);
+        haze.addColorStop(0, EDGE_MAGENTA);
+        haze.addColorStop(1, 'transparent');
+        ctx.fillStyle = haze;
+        ctx.fillRect(0, 0, W, 90);
+        ctx.globalAlpha = 1;
+
+        // Buildings
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            var by = b.y + (scrollY % (H + 200));
+            if (by > H + 20) by -= H + 220;
+            if (by + b.h < -20) continue;
+
+            ctx.fillStyle = '#0a0618';
+            ctx.fillRect(b.x, by, b.w, b.h);
+            // Neon edge
+            ctx.fillStyle = b.color;
+            ctx.globalAlpha = 0.55;
+            ctx.fillRect(b.x, by, 2, b.h);
+            ctx.fillRect(b.x + b.w - 2, by, 2, b.h);
+            ctx.fillRect(b.x, by, b.w, 2);
+            ctx.globalAlpha = 0.12;
+            ctx.fillRect(b.x - 2, by - 2, b.w + 4, b.h + 4);
+            ctx.globalAlpha = 1;
+
+            // Windows
+            ctx.fillStyle = b.color;
+            var rows = Math.max(2, Math.floor(b.h / 14));
+            for (var row = 0; row < rows; row++) {
+                for (var col = 0; col < b.windows; col++) {
+                    if ((row + col + i) % 3 === 0) continue;
+                    ctx.globalAlpha = 0.35 + 0.25 * ((row + col) % 2);
+                    var wx = b.x + 4 + col * ((b.w - 8) / b.windows);
+                    var wy = by + 6 + row * 12;
+                    ctx.fillRect(wx, wy, 3, 4);
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function drawRoad() {
+        // Asphalt with subtle lane tint bands
+        ctx.fillStyle = ROAD_COL;
+        ctx.fillRect(ROAD_L, 0, LANE_COUNT * LANE_W, H);
+        for (var l = 0; l < LANE_COUNT; l++) {
+            if (l % 2 === 0) {
+                ctx.fillStyle = ROAD_STRIPE;
+                ctx.globalAlpha = 0.35;
+                ctx.fillRect(ROAD_L + l * LANE_W, 0, LANE_W, H);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Center dashed lines
+        ctx.fillStyle = LINE_COL;
+        for (var l = 1; l < LANE_COUNT; l++) {
+            var lx = ROAD_L + l * LANE_W - 1;
+            for (var d = 0; d < dashes.length; d++) {
+                ctx.fillRect(lx, dashes[d], 2, 16);
+            }
+        }
+
+        // Neon curb rails (layered glow, no shadowBlur)
+        for (var g = 3; g >= 0; g--) {
+            ctx.globalAlpha = 0.08 + (3 - g) * 0.08;
+            ctx.fillStyle = EDGE_MAGENTA;
+            ctx.fillRect(ROAD_L - 4 - g * 2, 0, 3 + g, H);
+            ctx.fillStyle = EDGE_CYAN;
+            ctx.fillRect(ROAD_R + g * 2, 0, 3 + g, H);
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = EDGE_MAGENTA;
+        ctx.fillRect(ROAD_L - 3, 0, 3, H);
+        ctx.fillStyle = EDGE_CYAN;
+        ctx.fillRect(ROAD_R, 0, 3, H);
+
+        // Roadside marker lights
+        for (var d = 0; d < dashes.length; d++) {
+            var pulse = 0.35 + 0.35 * Math.sin(scrollY * 0.02 + d);
+            ctx.globalAlpha = pulse;
+            ctx.fillStyle = EDGE_MAGENTA;
+            ctx.fillRect(ROAD_L - 16, dashes[d] + 4, 5, 5);
+            ctx.fillStyle = EDGE_CYAN;
+            ctx.fillRect(ROAD_R + 11, dashes[d] + 4, 5, 5);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawSpeedLines() {
+        if (speed < 280) return;
+        var intensity = Math.min(1, (speed - 280) / 300);
+        ctx.globalAlpha = 0.12 * intensity;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        var count = Math.floor(6 + intensity * 10);
+        for (var i = 0; i < count; i++) {
+            var x = ROAD_L + 8 + (i * 37 + (scrollY * 0.4)) % (LANE_COUNT * LANE_W - 16);
+            var y = (i * 73 + scrollY * 1.8) % H;
+            var len = 12 + intensity * 28;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + len);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawHud() {
+        // Top bar
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0, 0, W, 28);
+        ctx.fillStyle = EDGE_CYAN;
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(0, 28, W, 1);
+        ctx.globalAlpha = 1;
+
+        ctx.font = '10px "Press Start 2P"';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = EDGE_CYAN;
+        ctx.fillText(Math.floor(speed) + ' KPH', 10, 19);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(Math.floor(dist / 10) + 'm', W - 10, 19);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = COIN_COL;
+        ctx.fillText('$' + coinCount, W / 2, 19);
+
+        // Active lane marker under player
+        ctx.globalAlpha = 0.14;
+        ctx.fillStyle = PLAYER_COL;
+        ctx.fillRect(ROAD_L + currentLane * LANE_W + 4, PLAYER_Y - 8, LANE_W - 8, CAR_H + 20);
+        ctx.globalAlpha = 1;
+    }
+
+    function drawCrashOverlay() {
+        ctx.fillStyle = 'rgba(0,0,0,0.78)';
+        ctx.fillRect(0, 0, W, H);
+
+        if (crashFlash > 0) {
+            ctx.globalAlpha = Math.min(0.45, crashFlash);
+            ctx.fillStyle = '#ff0066';
+            ctx.fillRect(0, 0, W, H);
+            ctx.globalAlpha = 1;
+        }
+
+        // Panel
+        ctx.fillStyle = 'rgba(18,0,40,0.92)';
+        roundRect(28, H / 2 - 110, W - 56, 200, 10);
+        ctx.fill();
+        ctx.strokeStyle = EDGE_MAGENTA;
+        ctx.lineWidth = 2;
+        roundRect(28, H / 2 - 110, W - 56, 200, 10);
+        ctx.stroke();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = EDGE_CYAN;
+        roundRect(34, H / 2 - 104, W - 68, 188, 8);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = EDGE_MAGENTA;
+        ctx.font = '22px "Press Start 2P"';
+        ctx.fillText('CRASH!', W / 2, H / 2 - 60);
+
+        ctx.fillStyle = EDGE_CYAN;
+        ctx.font = '12px "Press Start 2P"';
+        ctx.fillText('SCORE ' + score, W / 2, H / 2 - 22);
+
+        ctx.fillStyle = COIN_COL;
+        ctx.font = '10px "Press Start 2P"';
+        ctx.fillText('COINS  ' + coinCount, W / 2, H / 2 + 4);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.fillText(Math.floor(dist / 10) + 'm   ' + Math.floor(speed) + ' KPH', W / 2, H / 2 + 32);
+
+        var blink = (Date.now() % 800) < 500;
+        ctx.fillStyle = blink ? '#ffd84a' : 'rgba(255,216,74,0.35)';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.fillText('SPACE / TAP TO RETRY', W / 2, H / 2 + 62);
+    }
+
     // --- Main loop ---
     function update(now) {
         gameLoop = requestAnimationFrame(update);
@@ -290,6 +575,8 @@ function initRacer() {
         var dt = (now - lastTime) / 1000;
         lastTime = now;
         if (dt > 0.1) dt = 1 / 60;
+
+        if (crashFlash > 0) crashFlash -= dt * 2.2;
 
         if (!dead) {
             var diff = targetX - playerX;
@@ -301,6 +588,7 @@ function initRacer() {
 
             speed = Math.min(MAX_SPEED, speed + ACCEL * dt * 60);
             dist += speed * dt;
+            scrollY += speed * dt;
             updateScore(Math.floor(dist / 10) + coinCount * 25);
 
             for (var i = dashes.length - 1; i >= 0; i--) {
@@ -317,25 +605,23 @@ function initRacer() {
                 if (Math.random() < 0.18) spawnCoin();
             }
 
-            // Move traffic
             for (var i = cars.length - 1; i >= 0; i--) {
                 var c = cars[i];
                 c.y += (speed - c.speed) * dt;
                 if (c.y > H + 60) { cars.splice(i, 1); continue; }
-                if (rectsHit(playerX, PLAYER_Y, CAR_W, CAR_H, c.x, c.y, CAR_W, CAR_H)) {
+                if (rectsHit(playerX + 3, PLAYER_Y + 4, CAR_W - 6, CAR_H - 8, c.x + 3, c.y + 4, CAR_W - 6, CAR_H - 8)) {
                     dead = true;
+                    crashFlash = 1;
                     playGameOverJingle();
                 }
             }
 
-            // Keep traffic from stacking on top of each other
             pushCarsApart(dt);
 
-            // Move & collect coins
             for (var i = coins.length - 1; i >= 0; i--) {
                 coins[i].y += speed * dt;
                 if (coins[i].y > H + 30) { coins.splice(i, 1); continue; }
-                if (rectsHit(playerX, PLAYER_Y, CAR_W, CAR_H, coins[i].x, coins[i].y, 20, 20)) {
+                if (rectsHit(playerX, PLAYER_Y, CAR_W, CAR_H, coins[i].x, coins[i].y, 22, 22)) {
                     coins.splice(i, 1);
                     coinCount++;
                     score = Math.floor(dist / 10) + coinCount * 25;
@@ -347,97 +633,21 @@ function initRacer() {
         }
 
         // --- Draw ---
-        ctx.fillStyle = BG;
-        ctx.fillRect(0, 0, W, H);
+        drawBackground(now);
+        drawRoad();
+        drawSpeedLines();
 
-        ctx.fillStyle = ROAD_COL;
-        ctx.fillRect(ROAD_L, 0, LANE_COUNT * LANE_W, H);
+        for (var i = 0; i < coins.length; i++) drawCoin(coins[i], now);
 
-        // Road edges with neon glow
-        ctx.fillStyle = EDGE_COL;
-        ctx.fillRect(ROAD_L - 3, 0, 3, H);
-        ctx.fillRect(ROAD_R, 0, 3, H);
-        ctx.globalAlpha = 0.15;
-        ctx.fillStyle = EDGE_COL;
-        ctx.fillRect(ROAD_L - 8, 0, 8, H);
-        ctx.fillRect(ROAD_R, 0, 8, H);
-        ctx.globalAlpha = 1;
-
-        // Lane dashes
-        ctx.fillStyle = LINE_COL;
-        for (var l = 1; l < LANE_COUNT; l++) {
-            var lx = ROAD_L + l * LANE_W - 1;
-            for (var d = 0; d < dashes.length; d++) {
-                ctx.fillRect(lx, dashes[d], 2, 18);
-            }
-        }
-
-        // Coins
-        for (var i = 0; i < coins.length; i++) drawCoin(coins[i]);
-
-        // Traffic (draw back-to-front so closer cars are on top)
         cars.sort(function(a, b) { return a.y - b.y; });
-        for (var i = 0; i < cars.length; i++) drawCar(cars[i].x, cars[i].y, CAR_W, CAR_H, cars[i].color, false);
+        for (var i = 0; i < cars.length; i++) {
+            drawCar(cars[i].x, cars[i].y, CAR_W, CAR_H, cars[i].color, false);
+        }
 
-        // Player car
         drawCar(playerX, PLAYER_Y, CAR_W, CAR_H, PLAYER_COL, true);
+        drawHud();
 
-        // Roadside neon dots
-        ctx.globalAlpha = 0.3;
-        for (var d = 0; d < dashes.length; d++) {
-            ctx.fillStyle = '#ff00ff';
-            ctx.fillRect(ROAD_L - 18, dashes[d] + 5, 4, 4);
-            ctx.fillStyle = '#00ffff';
-            ctx.fillRect(ROAD_R + 14, dashes[d] + 5, 4, 4);
-        }
-        ctx.globalAlpha = 1;
-
-        // Lane guide arrows
-        ctx.globalAlpha = 0.12;
-        ctx.fillStyle = PLAYER_COL;
-        var arrowCX = laneCenter(currentLane) + CAR_W / 2;
-        for (var ay = PLAYER_Y - 30; ay > 0; ay -= 50) {
-            ctx.beginPath();
-            ctx.moveTo(arrowCX, ay);
-            ctx.lineTo(arrowCX - 6, ay + 10);
-            ctx.lineTo(arrowCX + 6, ay + 10);
-            ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-
-        // HUD
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = '9px "Press Start 2P"';
-        ctx.textAlign = 'left';
-        ctx.fillText(Math.floor(speed) + ' KPH', 8, H - 8);
-        ctx.textAlign = 'right';
-        ctx.fillText(Math.floor(dist / 10) + ' m', W - 8, H - 8);
-
-        // Coin counter
-        ctx.textAlign = 'center';
-        ctx.fillStyle = COIN_COL;
-        ctx.fillText('$ ' + coinCount, W / 2, H - 8);
-
-        if (dead) {
-            ctx.fillStyle = 'rgba(0,0,0,0.75)';
-            ctx.fillRect(0, 0, W, H);
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#ff00ff';
-            ctx.font = '22px "Press Start 2P"';
-            ctx.fillText('CRASH!', W / 2, H / 2 - 50);
-            ctx.fillStyle = '#0ff0fc';
-            ctx.font = '11px "Press Start 2P"';
-            ctx.fillText('SCORE: ' + score, W / 2, H / 2 - 16);
-            ctx.fillStyle = COIN_COL;
-            ctx.font = '9px "Press Start 2P"';
-            ctx.fillText('COINS: ' + coinCount, W / 2, H / 2 + 6);
-            ctx.fillStyle = '#fff';
-            ctx.font = '9px "Press Start 2P"';
-            ctx.fillText(Math.floor(dist / 10) + ' m  |  ' + Math.floor(speed) + ' KPH', W / 2, H / 2 + 24);
-            ctx.fillStyle = '#ffd700';
-            ctx.font = '9px "Press Start 2P"';
-            ctx.fillText('SPACE / TAP TO RETRY', W / 2, H / 2 + 50);
-        }
+        if (dead) drawCrashOverlay();
     }
 
     // --- Keyboard ---

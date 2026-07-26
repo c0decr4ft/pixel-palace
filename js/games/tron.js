@@ -285,6 +285,7 @@ function initTron() {
                 const secret = parsed.secret;
                 const peer = new Peer(undefined, { debug: 0 });
                 peer.on('open', () => {
+                    // Reliable channel: Tron sends path deltas that must not be lost
                     const conn = peer.connect(peerId);
                     if (!conn) { overlay.querySelector('h3').textContent = 'Could not connect.'; return; }
                     joinerAuthenticate(conn, secret, () => {
@@ -432,16 +433,19 @@ function initTron() {
                     const n2 = sentP2Idx < p2.path.length ? p2.path.slice(sentP2Idx) : null;
                     const dirsChanged = (p1.dir !== hostLastSentDir1 || p2.dir !== hostLastSentDir2);
                     if (n1 || n2 || dirsChanged || gameOver) {
-                        lastSend = now;
-                        sentP1Idx = p1.path.length;
-                        sentP2Idx = p2.path.length;
-                        hostLastSentDir1 = p1.dir;
-                        hostLastSentDir2 = p2.dir;
-                        conn.send({ t: 'u',
+                        // Only advance sent indices when the packet actually goes out
+                        const sent = safePeerSend(conn, { t: 'u',
                             p1x: p1.x, p1y: p1.y, p1d: p1.dir, p1a: p1.alive,
                             p2x: p2.x, p2y: p2.y, p2d: p2.dir, p2a: p2.alive,
                             n1: n1, n2: n2, go: gameOver, win: winner
                         });
+                        if (sent) {
+                            lastSend = now;
+                            sentP1Idx = p1.path.length;
+                            sentP2Idx = p2.path.length;
+                            hostLastSentDir1 = p1.dir;
+                            hostLastSentDir2 = p2.dir;
+                        }
                     } else {
                         lastSend = now;
                     }
@@ -449,7 +453,7 @@ function initTron() {
             } else {
                 if (now - lastSend >= SEND_INTERVAL_MS) {
                     lastSend = now;
-                    conn.send({ t: 'dir', d: myDir });
+                    safePeerSend(conn, { t: 'dir', d: myDir });
                 }
             }
             if (gameOver) {

@@ -227,7 +227,7 @@ function initPong() {
                 const secret = parsed.secret;
                 const peer = new Peer(undefined, { debug: 0 });
                 peer.on('open', () => {
-                    const conn = peer.connect(peerId);
+                    const conn = connectPeerGame(peer, peerId);
                     if (!conn) {
                         overlay.querySelector('h3').textContent = 'Could not connect. Check code.';
                         return;
@@ -442,6 +442,9 @@ function initPong() {
         let displayRemotePaddle = remotePaddle; // smoothed version for rendering
         let gameOver = false;
         let winner = '';
+        // Reused packets — avoid allocating a new object every send (GC hitch on host)
+        const hostPkt = { t: 's', bx: 0, by: 0, sx: 0, sy: 0, s1: 0, s2: 0, p1: 0, w: '' };
+        const joinPkt = { t: 'p', y: 0 };
         
         cleanupFunctions.push(() => {
             try { conn.close(); } catch (e) {}
@@ -452,45 +455,40 @@ function initPong() {
             const data = sanitizePeerData(raw);
             if (!data) return;
             // Joiner paddle update (short key)
-            if (data.t === 'p' && typeof data.y === 'number' && isFinite(data.y)) remotePaddle = data.y;
-            if (data.t === 'paddle' && typeof data.y === 'number' && isFinite(data.y)) remotePaddle = data.y;
-            // Host state update (short keys)
-            if (data.t === 's') {
+            if ((data.t === 'p' || data.t === 'paddle') && typeof data.y === 'number' && isFinite(data.y)) {
+                if (isHost) remotePaddle = data.y;
+                return;
+            }
+            // Host state update (short keys) — joiner only
+            if (data.t === 's' && !isHost) {
                 if (typeof data.bx === 'number') ballX = data.bx;
                 if (typeof data.by === 'number') ballY = data.by;
                 if (typeof data.sx === 'number') ballSpeedX = data.sx;
                 if (typeof data.sy === 'number') ballSpeedY = data.sy;
                 if (typeof data.s1 === 'number') score1 = data.s1;
                 if (typeof data.s2 === 'number') score2 = data.s2;
-                if (typeof data.p1 === 'number') {
-                    if (!isHost) remotePaddle = data.p1;
-                    else paddle1Y = data.p1;
-                }
+                if (typeof data.p1 === 'number') remotePaddle = data.p1;
                 if ((data.w === 'p1' || data.w === 'p2') && !winner) {
                     gameOver = true;
                     winner = data.w;
-                    const myRole = isHost ? 'p1' : 'p2';
-                    if (winner === myRole) playSound(800, 0.3);
+                    if (winner === 'p2') playSound(800, 0.3);
                     else playGameOverJingle();
                 }
+                return;
             }
             // Legacy long-key format support
-            if (data.t === 'state') {
+            if (data.t === 'state' && !isHost) {
                 if (typeof data.ballX === 'number') ballX = data.ballX;
                 if (typeof data.ballY === 'number') ballY = data.ballY;
                 if (typeof data.ballSpeedX === 'number') ballSpeedX = data.ballSpeedX;
                 if (typeof data.ballSpeedY === 'number') ballSpeedY = data.ballSpeedY;
                 if (typeof data.score1 === 'number') score1 = data.score1;
                 if (typeof data.score2 === 'number') score2 = data.score2;
-                if (typeof data.paddle1Y === 'number') {
-                    if (!isHost) remotePaddle = data.paddle1Y;
-                    else paddle1Y = data.paddle1Y;
-                }
+                if (typeof data.paddle1Y === 'number') remotePaddle = data.paddle1Y;
                 if ((data.winner === 'p1' || data.winner === 'p2') && !winner) {
                     gameOver = true;
                     winner = data.winner;
-                    const myRole = isHost ? 'p1' : 'p2';
-                    if (winner === myRole) playSound(800, 0.3);
+                    if (winner === 'p2') playSound(800, 0.3);
                     else playGameOverJingle();
                 }
             }
@@ -506,12 +504,31 @@ function initPong() {
         }
         
         let lastTime = performance.now();
-        const HOST_SEND_INTERVAL = 1/15;
-        const JOIN_SEND_INTERVAL = 1/20;
+        // Unreliable channel: higher rate is fine; buffer gate drops excess
+        const HOST_SEND_INTERVAL = 1/30;
+        const JOIN_SEND_INTERVAL = 1/30;
         let sendAcc = 0;
         let ballAccum = 0;
         const BALL_DT = 1/60;
         const MAX_BALL_STEPS = 5;
+        
+        function drawFrame() {
+            drawPongField(ctx, PONG_W, PONG_H);
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(20, paddle1Y, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillRect(PONG_W - PADDLE_W - 20, paddle2Y, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ballX + BALL_SIZE/2, ballY + BALL_SIZE/2, BALL_SIZE/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = PONG_SCORE_FONT;
+            ctx.fillStyle = '#00ffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(score1, PONG_W / 4, 60);
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillText(score2, 3 * PONG_W / 4, 60);
+        }
         
         function update(now) {
             gameLoop = requestAnimationFrame(update);
@@ -534,6 +551,15 @@ function initPong() {
                     ctx.fillStyle = '#ff4444';
                     ctx.font = '16px Orbitron';
                     ctx.fillText('Opponent disconnected', PONG_W / 2, PONG_H / 2);
+                }
+                // Keep re-sending terminal state so joiner gets it on unreliable channel
+                if (isHost && winner) {
+                    hostPkt.bx = ballX|0; hostPkt.by = ballY|0;
+                    hostPkt.sx = Math.round(ballSpeedX * 100) / 100;
+                    hostPkt.sy = Math.round(ballSpeedY * 100) / 100;
+                    hostPkt.s1 = score1; hostPkt.s2 = score2;
+                    hostPkt.p1 = paddle1Y|0; hostPkt.w = winner;
+                    safePeerSend(conn, hostPkt);
                 }
                 return;
             }
@@ -560,7 +586,7 @@ function initPong() {
             }
             
             // Smoothly interpolate the remote paddle toward its target
-            const lerpSpeed = 22;
+            const lerpSpeed = 28;
             displayRemotePaddle += (remotePaddle - displayRemotePaddle) * Math.min(1, lerpSpeed * dt);
 
             if (isHost) {
@@ -615,36 +641,46 @@ function initPong() {
                 
                 ballSpeedX = Math.max(-12, Math.min(12, ballSpeedX));
                 ballSpeedY = Math.max(-10, Math.min(10, ballSpeedY));
-                
-                sendAcc += dt;
-                if (sendAcc >= HOST_SEND_INTERVAL) {
-                    sendAcc = 0;
-                    conn.send({ t: 's', bx: ballX|0, by: ballY|0, sx: +(ballSpeedX.toFixed(2)), sy: +(ballSpeedY.toFixed(2)), s1: score1, s2: score2, p1: paddle1Y|0, p2: paddle2Y|0, w: winner || '' });
-                }
             } else {
                 paddle1Y = displayRemotePaddle;
-                sendAcc += dt;
-                if (sendAcc >= JOIN_SEND_INTERVAL) {
-                    sendAcc = 0;
-                    conn.send({ t: 'p', y: paddle2Y|0 });
+                // Extrapolate ball between host snapshots so joiner stays smooth
+                ballAccum += dt;
+                let steps = 0;
+                while (ballAccum >= BALL_DT && steps < MAX_BALL_STEPS) {
+                    ballAccum -= BALL_DT;
+                    steps++;
+                    ballX += ballSpeedX;
+                    ballY += ballSpeedY;
+                    if (ballY <= 0 || ballY >= PONG_H - BALL_SIZE) {
+                        ballSpeedY = -ballSpeedY;
+                        ballY = Math.max(0, Math.min(PONG_H - BALL_SIZE, ballY));
+                    }
                 }
+                if (steps >= MAX_BALL_STEPS) ballAccum = 0;
             }
-            
-            drawPongField(ctx, PONG_W, PONG_H);
-            ctx.fillStyle = '#00ffff';
-            ctx.fillRect(20, paddle1Y, PADDLE_W, PADDLE_H);
-            ctx.fillStyle = '#ff00ff';
-            ctx.fillRect(PONG_W - PADDLE_W - 20, paddle2Y, PADDLE_W, PADDLE_H);
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(ballX + BALL_SIZE/2, ballY + BALL_SIZE/2, BALL_SIZE/2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.font = PONG_SCORE_FONT;
-            ctx.fillStyle = '#00ffff';
-            ctx.textAlign = 'center';
-            ctx.fillText(score1, PONG_W / 4, 60);
-            ctx.fillStyle = '#ff00ff';
-            ctx.fillText(score2, 3 * PONG_W / 4, 60);
+
+            // Draw first — never let network I/O skip a frame on the host
+            drawFrame();
+
+            sendAcc += dt;
+            if (isHost) {
+                if (sendAcc >= HOST_SEND_INTERVAL || gameOver) {
+                    sendAcc = 0;
+                    hostPkt.bx = ballX|0;
+                    hostPkt.by = ballY|0;
+                    hostPkt.sx = Math.round(ballSpeedX * 100) / 100;
+                    hostPkt.sy = Math.round(ballSpeedY * 100) / 100;
+                    hostPkt.s1 = score1;
+                    hostPkt.s2 = score2;
+                    hostPkt.p1 = paddle1Y|0;
+                    hostPkt.w = winner || '';
+                    safePeerSend(conn, hostPkt);
+                }
+            } else if (sendAcc >= JOIN_SEND_INTERVAL) {
+                sendAcc = 0;
+                joinPkt.y = paddle2Y|0;
+                safePeerSend(conn, joinPkt);
+            }
         }
         
         gameLoop = requestAnimationFrame(update);
