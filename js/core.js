@@ -106,7 +106,8 @@ function isTouchOnUI(e) {
     if (t.closest('.game-header') || t.closest('.pause-overlay') ||
         t.closest('.pong-mode-overlay') || t.closest('.pong-online-overlay') ||
         t.closest('.ttt-mode-overlay') || t.closest('[class*="-mode-overlay"]') ||
-        t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'A') {
+        t.closest('.racer-promo-link') ||
+        t.closest('button') || t.closest('input') || t.closest('a')) {
         return true;
     }
     return false;

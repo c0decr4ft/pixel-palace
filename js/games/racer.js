@@ -4,6 +4,18 @@ function initRacer() {
     currentGameTitle.textContent = 'NEON RACER';
     gameControls.innerHTML = 'Dodge traffic &mdash; tap sides or arrow keys to switch lanes!';
 
+    // Bottom-left promo for the full online racer
+    var promo = document.createElement('a');
+    promo.href = 'https://c0decr4ft.github.io/racer-online/';
+    promo.target = '_blank';
+    promo.rel = 'noopener noreferrer';
+    promo.className = 'racer-promo-link';
+    promo.innerHTML = '<span class="racer-promo-label">Like this?</span> Try <strong>Racer Online</strong> →';
+    gameContainer.appendChild(promo);
+    cleanupFunctions.push(function() {
+        if (promo.parentNode) promo.parentNode.removeChild(promo);
+    });
+
     var W = 360, H = 600;
     canvas.width = W;
     canvas.height = H;
