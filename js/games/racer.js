@@ -6,11 +6,11 @@ function initRacer() {
 
     // Bottom-left promo for the full online racer
     var promo = document.createElement('a');
-    promo.href = 'https://c0decr4ft.github.io/racer-online/';
+    promo.href = 'https://satsracer.com';
     promo.target = '_blank';
     promo.rel = 'noopener noreferrer';
     promo.className = 'racer-promo-link';
-    promo.innerHTML = '<span class="racer-promo-label">Like this?</span> Try <strong>Racer Online</strong> →';
+    promo.innerHTML = '<span class="racer-promo-label">Like this?</span> Try <strong>Sats Racer</strong> →';
     gameContainer.appendChild(promo);
     cleanupFunctions.push(function() {
         if (promo.parentNode) promo.parentNode.removeChild(promo);
