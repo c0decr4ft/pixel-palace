@@ -46,7 +46,10 @@ function initRacer() {
     var TRAFFIC_COLORS = ['#ff3c7f', '#ff6a2a', '#c44dff', '#2dff7a', '#ffb020', '#4d7cff'];
     var MAX_TRAFFIC = 6;
     var LANE_LERP = 12;
-    var SAFE_GAP = CAR_H + 30;
+    // Vertical gap needed to switch lanes past a pack of cars
+    var SAFE_GAP = CAR_H + 50;
+    // Any horizontal slice this tall must keep ≥1 open lane
+    var PASS_WINDOW = CAR_H + 80;
 
     var currentLane, targetX, playerX, speed, dist, dead;
     var cars, dashes, coins, buildings, stars;
@@ -280,9 +283,47 @@ function initRacer() {
     function laneOccupied(lane, minY, maxY) {
         var lx = laneCenter(lane);
         for (var i = 0; i < cars.length; i++) {
-            if (Math.abs(cars[i].x - lx) < CAR_W && cars[i].y > minY && cars[i].y < maxY) {
+            var c = cars[i];
+            if (Math.abs(c.x - lx) < CAR_W && c.y < maxY && c.y + CAR_H > minY) {
                 return true;
             }
+        }
+        return false;
+    }
+
+    function laneOfCar(c) {
+        if (typeof c.lane === 'number' && c.lane >= 0 && c.lane < LANE_COUNT) return c.lane;
+        return Math.max(0, Math.min(LANE_COUNT - 1,
+            Math.round((c.x - ROAD_L - (LANE_W - CAR_W) / 2) / LANE_W)));
+    }
+
+    /** How many distinct lanes are occupied inside [winTop, winBot]? */
+    function occupiedLaneCount(winTop, winBot, extraLane) {
+        var seen = [false, false, false, false];
+        var used = 0;
+        if (extraLane >= 0 && extraLane < LANE_COUNT) {
+            seen[extraLane] = true;
+            used = 1;
+        }
+        for (var i = 0; i < cars.length; i++) {
+            var c = cars[i];
+            if (c.y < winBot && c.y + CAR_H > winTop) {
+                var ln = laneOfCar(c);
+                if (!seen[ln]) {
+                    seen[ln] = true;
+                    used++;
+                }
+            }
+        }
+        return used;
+    }
+
+    /** True if spawning in `lane` at `spawnY` would seal every lane in some pass-window. */
+    function wouldBlockAllLanes(lane, spawnY) {
+        var carTop = spawnY;
+        var carBot = spawnY + CAR_H;
+        for (var t = carTop - PASS_WINDOW + 8; t <= carBot; t += 12) {
+            if (occupiedLaneCount(t, t + PASS_WINDOW, lane) >= LANE_COUNT) return true;
         }
         return false;
     }
@@ -290,26 +331,57 @@ function initRacer() {
     function spawnCar() {
         if (cars.length >= MAX_TRAFFIC) return;
 
-        var freeLanes = [];
+        var spawnY = -CAR_H - 10;
+        var candidates = [];
         for (var l = 0; l < LANE_COUNT; l++) {
-            if (!laneOccupied(l, -CAR_H - SAFE_GAP, SAFE_GAP)) freeLanes.push(l);
+            // Keep vertical spacing in this lane
+            if (laneOccupied(l, spawnY - SAFE_GAP, spawnY + CAR_H + SAFE_GAP)) continue;
+            // Never close the last escape route
+            if (wouldBlockAllLanes(l, spawnY)) continue;
+            candidates.push(l);
         }
-        if (freeLanes.length <= 1) return;
+        if (candidates.length === 0) return;
 
-        var lane = freeLanes[Math.floor(Math.random() * freeLanes.length)];
-        var x = laneCenter(lane);
-
-        for (var i = 0; i < cars.length; i++) {
-            if (Math.abs(cars[i].x - x) < CAR_W && cars[i].y < SAFE_GAP) return;
+        // Prefer leaving the player's current lane open when other options exist
+        var preferred = [];
+        for (var i = 0; i < candidates.length; i++) {
+            if (candidates[i] !== currentLane) preferred.push(candidates[i]);
         }
+        var pool = preferred.length > 0 ? preferred : candidates;
+        var lane = pool[Math.floor(Math.random() * pool.length)];
 
         cars.push({
-            x: x,
-            y: -CAR_H - 10,
+            x: laneCenter(lane),
+            y: spawnY,
             lane: lane,
             speed: speed * (0.4 + Math.random() * 0.3),
             color: TRAFFIC_COLORS[Math.floor(Math.random() * TRAFFIC_COLORS.length)]
         });
+    }
+
+    /** Safety net: if a wall somehow forms ahead of the player, clear one lane. */
+    function enforcePassable() {
+        var zoneTop = -CAR_H;
+        var zoneBot = PLAYER_Y + CAR_H;
+        for (var t = zoneTop; t < zoneBot; t += 20) {
+            var bot = t + PASS_WINDOW;
+            if (occupiedLaneCount(t, bot, -1) < LANE_COUNT) continue;
+
+            // Remove the highest car in this window (farthest / least unfair)
+            var victim = -1;
+            var bestY = Infinity;
+            for (var i = 0; i < cars.length; i++) {
+                var c = cars[i];
+                if (c.y < bot && c.y + CAR_H > t && c.y < bestY) {
+                    bestY = c.y;
+                    victim = i;
+                }
+            }
+            if (victim >= 0) {
+                cars.splice(victim, 1);
+                return;
+            }
+        }
     }
 
     function spawnCoin() {
@@ -604,6 +676,7 @@ function initRacer() {
             }
 
             pushCarsApart(dt);
+            enforcePassable();
 
             for (var i = coins.length - 1; i >= 0; i--) {
                 coins[i].y += speed * dt;
