@@ -144,14 +144,6 @@ function initRacer() {
     function drawCar(x, y, w, h, color, isPlayer) {
         var r = 6;
 
-        // Soft underglow (layered rects)
-        ctx.globalAlpha = 0.12;
-        ctx.fillStyle = color;
-        ctx.fillRect(x - 5, y - 2, w + 10, h + 8);
-        ctx.globalAlpha = 0.2;
-        ctx.fillRect(x - 2, y + h - 4, w + 4, 8);
-        ctx.globalAlpha = 1;
-
         // Drop shadow
         ctx.globalAlpha = 0.28;
         ctx.fillStyle = '#000';
@@ -250,11 +242,6 @@ function initRacer() {
             ctx.fillStyle = '#ff2244';
             ctx.fillRect(x + 5, y + h - 3, 6, 3);
             ctx.fillRect(x + w - 11, y + h - 3, 6, 3);
-            ctx.globalAlpha = 0.3;
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x + 3, y + h, 10, 5);
-            ctx.fillRect(x + w - 13, y + h, 10, 5);
-            ctx.globalAlpha = 1;
         }
     }
 
