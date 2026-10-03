@@ -18,6 +18,30 @@ body {
 	touch-action: none;
 }
 
+/* Pixel Palace lobby return */
+#pp-lobby {
+	position: fixed;
+	top: 12px;
+	left: 12px;
+	z-index: 10000;
+	font-family: 'Courier New', monospace;
+	font-size: 14px;
+	font-weight: bold;
+	padding: 10px 14px;
+	color: #ff2bd6;
+	background: rgba(10, 0, 24, 0.85);
+	border: 2px solid #ff2bd6;
+	border-radius: 6px;
+	text-decoration: none;
+	cursor: pointer;
+	pointer-events: auto;
+}
+#pp-lobby:hover {
+	color: #fff;
+	background: #ff2bd6;
+}
+
+
 #canvas {
 	display: block;
 }
@@ -95,6 +119,7 @@ body {
 
 	</head>
 	<body>
+		<a id="pp-lobby" href="../../index.html">← LOBBY</a>
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
 		</canvas>
@@ -111,7 +136,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":1696668,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":1697068,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
@@ -198,6 +223,11 @@ const engine = new Engine(GODOT_CONFIG);
 			displayFailureNotice(missingMsg + missing.join('\n'));
 		}
 	} else {
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.getRegistrations().then((regs) => {
+				regs.forEach((r) => r.unregister());
+			}).catch(() => {});
+		}
 		setStatusMode('progress');
 		engine.startGame({
 			'onProgress': function (current, total) {
@@ -211,6 +241,10 @@ const engine = new Engine(GODOT_CONFIG);
 			},
 		}).then(() => {
 			setStatusMode('hidden');
+			const canvas = document.getElementById('canvas');
+			if (canvas) {
+				try { canvas.focus(); } catch (e) {}
+			}
 		}, displayFailureNotice);
 	}
 }());
