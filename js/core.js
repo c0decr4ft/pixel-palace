@@ -633,9 +633,15 @@ tabs.forEach(tab => {
 document.querySelectorAll('.play-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        e.preventDefault();
         const cabinet = btn.closest('.game-cabinet');
-        const gameName = cabinet.dataset.game;
+        const gameName = cabinet && cabinet.dataset.game;
+        // Godot build cannot run under CSP frame-src 'none' — go straight there
+        if (gameName === 'firstgame') {
+            e.preventDefault();
+            window.location.assign(new URL('godot/first-game/index.html', window.location.href).href);
+            return;
+        }
+        e.preventDefault();
         startGame(gameName);
     });
 });
@@ -843,8 +849,22 @@ function showGameInstructions(gameName, onDone) {
 }
 
 function startGame(gameName) {
-    if (!lobby || !gameContainer || !canvas || !ctx) {
+    if (!lobby || !gameContainer) {
         console.error('PIXEL PALACE: Cannot start game — required elements missing.');
+        return;
+    }
+    // Godot web builds navigate away — skip canvas shell / instructions delay
+    if (gameName === 'firstgame') {
+        if (typeof initFirstGame !== 'function') {
+            console.error('PIXEL PALACE: initFirstGame missing — check js/games/firstgame.js');
+            return;
+        }
+        currentGame = gameName;
+        initFirstGame();
+        return;
+    }
+    if (!canvas || !ctx) {
+        console.error('PIXEL PALACE: Cannot start game — canvas missing.');
         return;
     }
     lobby.style.display = 'none';

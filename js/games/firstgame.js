@@ -1,31 +1,10 @@
-// === MY FIRST GAME — Godot 4 web export (iframe) ===
+// === MY FIRST GAME — Godot 4 web export ===
+// Must open as a full page. Pixel Palace CSP sets frame-src 'none', so an
+// iframe shows Chrome's "This content is blocked" error.
 
 function initFirstGame() {
-    currentGameTitle.textContent = 'MY FIRST GAME';
-    gameControls.innerHTML = 'Arrow keys / WASD to move &mdash; Space or Enter to jump';
-
-    var playArea = gameContainer.querySelector('.game-play-area');
-    if (!playArea) {
-        console.error('PIXEL PALACE: game-play-area missing for My First Game.');
-        return;
-    }
-
-    gameContainer.classList.add('godot-mode');
-
-    var frame = document.createElement('iframe');
-    frame.className = 'godot-frame';
-    frame.src = 'godot/first-game/index.html';
-    frame.title = 'My First Game';
-    frame.allow = 'autoplay; gamepad; fullscreen';
-    frame.setAttribute('allowfullscreen', '');
-    playArea.appendChild(frame);
-
-    frame.addEventListener('load', function() {
-        try { frame.focus(); } catch (e) {}
-    });
-
-    cleanupFunctions.push(function() {
-        try { frame.remove(); } catch (e) {}
-        gameContainer.classList.remove('godot-mode');
-    });
+    // Resolve relative to the current page so GitHub Pages project sites work
+    // (e.g. /pixel-palace/index.html → /pixel-palace/godot/first-game/index.html)
+    var target = new URL('godot/first-game/index.html', window.location.href).href;
+    window.location.assign(target);
 }
