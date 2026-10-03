@@ -712,6 +712,7 @@ const GAME_DISPLAY_NAMES = {
     tictactoe: 'TIC TAC TOE',
     triangles: 'DOTS & TRIANGLES',
     racer: 'NEON RACER',
+    firstgame: 'MY FIRST GAME',
 };
 
 // === GAME INSTRUCTIONS ===
@@ -761,6 +762,10 @@ const GAME_INSTRUCTIONS = {
     racer: {
         desktop: ['← → or A/D to switch lanes', 'Dodge traffic — speed increases over time', 'Grab coins for bonus points'],
         mobile:  ['Tap left/right side of screen to switch lanes', 'Dodge traffic — speed increases over time', 'Grab coins for bonus points']
+    },
+    firstgame: {
+        desktop: ['← → or A/D to move', 'Space or Enter to jump', 'Avoid hazards and explore the level'],
+        mobile:  ['On-screen / keyboard: move with arrows', 'Jump with Space or Enter', 'Avoid hazards and explore the level']
     }
 };
 
@@ -874,7 +879,7 @@ function _launchGame(gameName) {
         snake: initSnake, tetris: initTetris, pong: initPong, tron: initTron,
         breakout: initBreakout, spaceinvaders: initSpaceInvaders,
         memory: initMemory2, '2048': init2048, tictactoe: initTicTacToe,
-        triangles: initTriangles, racer: initRacer
+        triangles: initTriangles, racer: initRacer, firstgame: initFirstGame
     };
     const fn = _inits[gameName];
     if (!fn) {
